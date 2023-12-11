@@ -684,7 +684,7 @@ class S3DISDataset(PointCloudDataset):
             write_ply(
                 cloud_file,
                 (cloud_points, cloud_colors, cloud_classes),
-                ["x", "y", "z", "red", "green", "blue", "class"],
+                ["x", "y", "z", "red", "green", "blue", "classification"],
             )
 
         print(f"Done in {time.time() - t0:.1f}s")
@@ -754,7 +754,7 @@ class S3DISDataset(PointCloudDataset):
             write_ply(
                 sub_ply_file,
                 [sub_points, sub_colors, sub_labels],
-                ["x", "y", "z", "red", "green", "blue", "class"],
+                ["x", "y", "z", "red", "green", "blue", "classification"],
             )
 
         # Fill data containers
@@ -912,7 +912,7 @@ class S3DISDataset(PointCloudDataset):
             colors = np.vstack((data["red"], data["green"], data["blue"])).T
             labels = data["class"]
         elif file_extension == "xyz":
-            data = np.fromfile(filename, sep=" ").reshape((-1, 6))
+            data = np.loadtxt(filename, delimiter=" ")#.reshape((-1, 6))
             points = data[:, :3].astype(np.float32)
             colors = data[:, 3:].astype(np.uint8)
             labels = np.zeros(shape=(data.shape[0],)).astype(np.int32)
@@ -920,11 +920,41 @@ class S3DISDataset(PointCloudDataset):
             raise OSError(f"Unsupported input file extension ({file_extension}).")
         return points, colors, labels
 
-    def write_ply(self):
+    def write_ply(self, ply_path, ply_data):
         """Write every dataset ply file on disk
 
         Ply files are written by the preprocessing command
         """
+        from plyfile import PlyData, PlyElement
+        vertex = np.concatenate(ply_data, axis=1)
+
+            # self.write_ply(
+            #     cloud_file,
+            #     (cloud_points, cloud_colors, cloud_classes),
+            #     ["x", "y", "z", "red", "green", "blue", "classification"],
+            # )
+
+# # Code used to create the ply files in this folder
+# # with 8bits colors
+# vertex = numpy.array(
+#     [
+#         (0, 0, 0, 0, 128, 0),
+#         (0, 1, 1, 10, 0, 0),
+#         (1, 0, 1, 0, 0, 20),
+#         (1, 1, 0, 40, 40, 40),
+#     ],
+#     dtype=[
+#         ("x", "f4"),
+#         ("y", "f4"),
+#         ("z", "f4"),
+#         ("red", "u1"),
+#         ("green", "u1"),
+#         ("blue", "u1"),
+#     ],
+# )
+# el = PlyElement.describe(vertex, "vertex")
+# PlyData([el]).write("simple_with_8_bits_colors.ply")
+
 
     def read_kdtree(self):
         """Read all the KDTree that belong to the dataset
