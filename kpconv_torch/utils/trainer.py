@@ -24,7 +24,7 @@ def get_train_save_path(output_dir, chosen_log):
 
 class ModelTrainer:
     def __init__(
-        self, net, config, args, chkp_path=None, train_save_path=None, finetune=False, on_gpu=True
+        self, net, config, chkp_path=None, train_save_path=None, finetune=False, on_gpu=True
     ):
         """
         Initialize training parameters and reload previous model for restore/finetune
@@ -88,7 +88,7 @@ class ModelTrainer:
     # Training main method
     # ------------------------------------------------------------------------------------------------------------------
 
-    def train(self, net, training_loader, val_loader, config, args):
+    def train(self, net, training_loader, val_loader, config):
         """
         Train the model on a particular dataset.
         """
@@ -247,7 +247,7 @@ class ModelTrainer:
 
             # Validation
             net.eval()
-            self.validation(net, val_loader, config, args)
+            self.validation(net, val_loader, config)
             net.train()
 
         print("Finished Training")
@@ -256,19 +256,19 @@ class ModelTrainer:
     # Validation methods
     # ------------------------------------------------------------------------------------------------------------------
 
-    def validation(self, net, val_loader, config: Config, args):
+    def validation(self, net, val_loader, config: Config):
         if config.dataset_task == "classification":
-            self.object_classification_validation(net, val_loader, config, args)
+            self.object_classification_validation(net, val_loader, config)
         elif config.dataset_task == "segmentation":
             self.object_segmentation_validation(net, val_loader, config)
         elif config.dataset_task == "cloud_segmentation":
-            self.cloud_segmentation_validation(net, val_loader, config, args)
+            self.cloud_segmentation_validation(net, val_loader, config)
         elif config.dataset_task == "slam_segmentation":
-            self.slam_segmentation_validation(net, val_loader, config, args)
+            self.slam_segmentation_validation(net, val_loader, config)
         else:
             raise ValueError("No validation method implemented for this network type")
 
-    def object_classification_validation(self, net, val_loader, config, args):
+    def object_classification_validation(self, net, val_loader, config):
         """
         Perform a round of validation and show/save results
         :param net: network object
@@ -391,7 +391,7 @@ class ModelTrainer:
 
         return C1
 
-    def cloud_segmentation_validation(self, net, val_loader, config, args, debug=False):
+    def cloud_segmentation_validation(self, net, val_loader, config, debug=False):
         """
         Validation method for cloud segmentation models
         """
@@ -643,7 +643,7 @@ class ModelTrainer:
 
         return
 
-    def slam_segmentation_validation(self, net, val_loader, config, args, debug=True):
+    def slam_segmentation_validation(self, net, val_loader, config, debug=True):
         """
         Validation method for slam segmentation models
         """
