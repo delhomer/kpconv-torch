@@ -3,8 +3,7 @@
 
 In order to exploit the library in optimal conditions, make sure [CUDA](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html) and [cuDNN](https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html) are installed.
 
-Installing `kpconv_torch` on your system is as simple as executing the following commands in a
-virtual environment:
+Installing `kpconv_torch` on your system is as simple as executing the following commands in a virtual environment:
 
 ```bash
 python -m pip install numpy
