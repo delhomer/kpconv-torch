@@ -39,9 +39,7 @@ class ModelTrainer:
         :param on_gpu: Train on GPU or CPU
         """
 
-        ############
-        # Parameters
-        ############
+        # Model trainer parameters
         # Epoch index
         self.epoch = 0
         self.step = 0
@@ -64,23 +62,20 @@ class ModelTrainer:
             self.device = torch.device("cpu")
         net.to(self.device)
 
-        ##########################
         # Load previous checkpoint
-        ##########################
-
         if chkp_path is not None:
             if finetune:
                 checkpoint = torch.load(chkp_path)
                 net.load_state_dict(checkpoint["model_state_dict"])
                 net.train()
-                print("Model restored and ready for finetuning.")
+                logger.info("Model restored and ready for finetuning")
             else:
                 checkpoint = torch.load(chkp_path)
                 net.load_state_dict(checkpoint["model_state_dict"])
                 self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
                 self.epoch = checkpoint["epoch"]
                 net.train()
-                print("Model and training state restored.")
+                logger.info("Model and training state restored")
 
         # Path of the result folder
         self.train_save_path = train_save_path
@@ -140,10 +135,7 @@ class ModelTrainer:
                 if config.saving and not os.path.exists(PID_file):
                     continue
 
-                ##################
                 # Processing batch
-                ##################
-
                 # New time
                 t = t[-1:]
                 t += [time.time()]
@@ -185,7 +177,7 @@ class ModelTrainer:
                     message = (
                         "e{:03d}-i{:04d} => L={:.3f} acc={:3.0f}% / t(ms): {:5.1f} {:5.1f} {:5.1f})"
                     )
-                    print(
+                    logger.info(
                         message.format(
                             self.epoch,
                             self.step,
@@ -214,9 +206,7 @@ class ModelTrainer:
 
                 self.step += 1
 
-            ##############
-            # End of epoch
-            ##############
+            logger.info("End of epoch")
 
             # Check kill signal (running_PID.txt deleted)
             if config.saving and not os.path.exists(PID_file):
@@ -256,7 +246,7 @@ class ModelTrainer:
             self.validation(net, val_loader, config)
             net.train()
 
-        print("Finished Training")
+        logger.info("Finished training")
         return
 
     # Validation methods
@@ -336,7 +326,7 @@ class ModelTrainer:
             if (t[-1] - last_display) > 1.0:
                 last_display = t[-1]
                 message = "Validation : {:.1f}% (timings : {:4.2f} {:4.2f})"
-                print(
+                logger.info(
                     message.format(
                         100 * len(obj_inds) / config.validation_size,
                         1000 * (mean_dt[0]),
@@ -373,7 +363,7 @@ class ModelTrainer:
 
         # Saving
         if config.saving:
-            print("Save confusions")
+            logger.info("Save confusions")
             conf_list = [C1, C2]
             file_list = ["val_confs.txt", "vote_confs.txt"]
             for conf, conf_file in zip(conf_list, file_list):
@@ -393,7 +383,7 @@ class ModelTrainer:
 
         val_ACC = 100 * np.sum(np.diag(C1)) / (np.sum(C1) + 1e-6)
         vote_ACC = 100 * np.sum(np.diag(C2)) / (np.sum(C2) + 1e-6)
-        print(f"Accuracies : val = {val_ACC:.1f}% / vote = {vote_ACC:.1f}%")
+        logger.info(f"Accuracies : val = {val_ACC:.1f}% / vote = {vote_ACC:.1f}%")
 
         return C1
 
@@ -505,7 +495,7 @@ class ModelTrainer:
             if (t[-1] - last_display) > 1.0:
                 last_display = t[-1]
                 message = "Validation : {:.1f}% (timings : {:4.2f} {:4.2f})"
-                print(
+                logger.info(
                     message.format(
                         100 * i / config.validation_size,
                         1000 * (mean_dt[0]),
@@ -594,7 +584,7 @@ class ModelTrainer:
 
         # Print instance mean
         mIoU = 100 * np.mean(IoUs)
-        print(f"{config.dataset} mean IoU = {mIoU:.1f}%")
+        logger.info(f"{config.dataset} mean IoU = {mIoU:.1f}%")
 
         # Save predicted cloud occasionally
         if config.saving and (self.epoch + 1) % config.checkpoint_gap == 0:
@@ -636,16 +626,16 @@ class ModelTrainer:
         # Display timings
         t7 = time.time()
         if debug:
-            print("\n************************\n")
-            print("Validation timings:")
-            print(f"Init ...... {t1 - t0:.1f}s")
-            print(f"Loop ...... {t2 - t1:.1f}s")
-            print(f"Confs ..... {t3 - t2:.1f}s")
-            print(f"Confs bis . {t4 - t3:.1f}s")
-            print(f"IoU ....... {t5 - t4:.1f}s")
-            print(f"Save1 ..... {t6 - t5:.1f}s")
-            print(f"Save2 ..... {t7 - t6:.1f}s")
-            print("\n************************\n")
+            logger.info("************************")
+            logger.info("Validation timings:")
+            logger.info(f"Init ...... {t1 - t0:.1f}s")
+            logger.info(f"Loop ...... {t2 - t1:.1f}s")
+            logger.info(f"Confs ..... {t3 - t2:.1f}s")
+            logger.info(f"Confs bis . {t4 - t3:.1f}s")
+            logger.info(f"IoU ....... {t5 - t4:.1f}s")
+            logger.info(f"Save1 ..... {t6 - t5:.1f}s")
+            logger.info(f"Save2 ..... {t7 - t6:.1f}s")
+            logger.info("************************")
 
         return
 
@@ -797,7 +787,7 @@ class ModelTrainer:
             if (t[-1] - last_display) > 1.0:
                 last_display = t[-1]
                 message = "Validation : {:.1f}% (timings : {:4.2f} {:4.2f})"
-                print(
+                logger.info(
                     message.format(
                         100 * i / config.validation_size,
                         1000 * (mean_dt[0]),
@@ -853,7 +843,7 @@ class ModelTrainer:
                 for c in cc:
                     s += f"{c:8.1f} "
                 s += "\n"
-            print(s)
+            logger.info(s)
 
         # Remove ignored labels from confusions
         for l_ind, label_value in reversed(list(enumerate(val_loader.dataset.label_values))):
@@ -892,22 +882,22 @@ class ModelTrainer:
 
         # Print instance mean
         mIoU = 100 * np.mean(IoUs)
-        print(f"{config.dataset} : subpart mIoU = {mIoU:1f} %")
+        logger.info(f"{config.dataset} : subpart mIoU = {mIoU:1f} %")
         mIoU = 100 * np.mean(val_IoUs)
-        print(f"{config.dataset} :     val mIoU = {mIoU:1f} %")
+        logger.info(f"{config.dataset} :     val mIoU = {mIoU:1f} %")
 
         t6 = time.time()
 
         # Display timings
         if debug:
-            print("\n************************\n")
-            print("Validation timings:")
-            print(f"Init ...... {t1 - t0:.1f}s")
-            print(f"Loop ...... {t2 - t1:.1f}s")
-            print(f"Confs ..... {t3 - t2:.1f}s")
-            print(f"IoU1 ...... {t4 - t3:.1f}s")
-            print(f"IoU2 ...... {t5 - t4:.1f}s")
-            print(f"Save ...... {t6 - t5:.1f}s")
-            print("\n************************\n")
+            logger.info("************************")
+            logger.info("Validation timings:")
+            logger.info(f"Init ...... {t1 - t0:.1f}s")
+            logger.info(f"Loop ...... {t2 - t1:.1f}s")
+            logger.info(f"Confs ..... {t3 - t2:.1f}s")
+            logger.info(f"IoU1 ...... {t4 - t3:.1f}s")
+            logger.info(f"IoU2 ...... {t5 - t4:.1f}s")
+            logger.info(f"Save ...... {t6 - t5:.1f}s")
+            logger.info("************************")
 
         return

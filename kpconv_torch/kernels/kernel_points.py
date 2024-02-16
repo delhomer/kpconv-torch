@@ -190,9 +190,9 @@ def spherical_Lloyd(
             kernel_points[:3, :-1] *= 0
 
         if verbose:
-            print(f"iter {idx:5d} / max move = {np.max(np.linalg.norm(moves, axis=1)):f}")
+            logger.info(f"iter {idx:5d} / max move = {np.max(np.linalg.norm(moves, axis=1)):f}")
             if warning:
-                print(
+                logger.info(
                     "{:}WARNING: at least one point has no cell{:}".format(
                         BColors.WARNING.value, BColors.ENDC.value
                     )
@@ -398,7 +398,7 @@ def kernel_point_optimization_debug(
         )
 
         if verbose:
-            print(f"step {step:5d} / max grad = {np.max(gradients_norms[:, 3:]):f}")
+            logger.info(f"step {step:5d} / max grad = {np.max(gradients_norms[:, 3:]):f}")
         if verbose > 1:
             plt.clf()
             plt.plot(kernel_points[0, :, 0], kernel_points[0, :, 1], ".")
@@ -410,7 +410,7 @@ def kernel_point_optimization_debug(
             plt.draw()
             plt.pause(0.001)
             plt.show(block=False)
-            print(moving_factor)
+            logger.info(moving_factor)
 
         # moving factor decay
         moving_factor *= continuous_moving_decay

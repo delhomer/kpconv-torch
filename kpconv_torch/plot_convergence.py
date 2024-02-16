@@ -43,7 +43,7 @@ def running_mean(signal, n, axis=0, stride=1):
         return torch_conv(torch_signal).squeeze().numpy()
 
     elif signal.ndim == 2:
-        print("TODO implement with torch and stride here")
+        logging.warning("TODO implement with torch and stride here")
         smoothed = np.empty(signal.shape)
         if axis == 0:
             for i, sig in enumerate(signal):
@@ -56,11 +56,11 @@ def running_mean(signal, n, axis=0, stride=1):
                 sig_num = np.convolve(sig * 0 + 1, np.ones((2 * n + 1,)), mode="same")
                 smoothed[:, i] = sig_sum / sig_num
         else:
-            print("wrong axis")
+            logging.debug("wrong axis")
         return smoothed
 
     else:
-        print("wrong dimensions")
+        logging.debug("wrong dimensions")
         return None
 
 
@@ -320,8 +320,8 @@ def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
     s = "{:^10}|".format("mean")
     for c in class_list:
         s += f"{c:^10}"
-    print(s)
-    print(10 * "-" + "|" + 10 * config.num_classes * "-")
+    logger.info(s)
+    logger.info(10 * "-" + "|" + 10 * config.num_classes * "-")
     for path in list_of_paths:
 
         # Get validation IoUs
@@ -339,14 +339,14 @@ def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
         s = f"{100 * mIoUs[-1]:^10.1f}|"
         for IoU in class_IoUs[-1]:
             s += f"{100 * IoU:^10.1f}"
-        print(s)
+        logger.info(s)
 
         # Get optional full validation on clouds
         snap_epochs, snap_IoUs = load_snap_clouds(path, dataset)
         all_snap_epochs += [snap_epochs]
         all_snap_IoUs += [snap_IoUs]
 
-    print(10 * "-" + "|" + 10 * config.num_classes * "-")
+    logger.info(10 * "-" + "|" + 10 * config.num_classes * "-")
     for snap_IoUs in all_snap_IoUs:
         if len(snap_IoUs) > 0:
             s = f"{100 * np.mean(snap_IoUs[-1]):^10.1f}|"
@@ -356,7 +356,7 @@ def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
             s = "{:^10s}".format("-")
             for _ in range(config.num_classes):
                 s += "{:^10s}".format("-")
-        print(s)
+        logger.info(s)
 
     # Plots
     # *****
@@ -455,17 +455,14 @@ def compare_convergences_classif(list_of_paths, list_of_labels=None):
         all_vote_OA += [vote_ACC]
         all_vote_confs += [vote_C2]
 
-    print()
-
     # Best scores
-    # ***********
     for i, label in enumerate(list_of_labels):
 
-        print("\n" + label + "\n" + "*" * len(label) + "\n")
-        print(list_of_paths[i])
+        logger.info("\n" + label + "\n" + "*" * len(label) + "\n")
+        logger.info(list_of_paths[i])
 
         best_epoch = np.argmax(all_vote_OA[i])
-        print(
+        logger.info(
             "Best Accuracy : {:.1f} % (epoch {:d})".format(
                 100 * all_vote_OA[i][best_epoch], best_epoch
             )
@@ -473,21 +470,12 @@ def compare_convergences_classif(list_of_paths, list_of_labels=None):
 
         confs = all_vote_confs[i]
 
-        """
-        s = ''
-        for cc in confs[best_epoch]:
-            for c in cc:
-                s += '{:.0f} '.format(c)
-            s += '\n'
-        print(s)
-        """
-
         TP_plus_FN = np.sum(confs, axis=-1, keepdims=True)
         class_avg_confs = confs.astype(np.float32) / TP_plus_FN.astype(np.float32)
         diags = np.diagonal(class_avg_confs, axis1=-2, axis2=-1)
         class_avg_ACC = np.sum(diags, axis=-1) / np.sum(class_avg_confs, axis=(-1, -2))
 
-        print(f"Corresponding mAcc : {100 * class_avg_ACC[best_epoch]:.1f} %")
+        logger.info(f"Corresponding mAcc : {100 * class_avg_ACC[best_epoch]:.1f} %")
 
     # Plots
     # *****

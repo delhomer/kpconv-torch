@@ -215,7 +215,7 @@ class ModelNet40Dataset(PointCloudDataset):
         else:
             split = "test"
 
-        print(f"\nLoading {split} points subsampled at {self.config.first_subsampling_dl:3f}")
+        logger.info(f"\nLoading {split} points subsampled at {self.config.first_subsampling_dl:3f}")
         filename = os.path.join(
             self.path, f"{split}_{self.config.first_subsampling_dl:3f}_record.pkl"
         )
@@ -261,8 +261,8 @@ class ModelNet40Dataset(PointCloudDataset):
                     points = data[:, :3]
                     normals = data[:, 3:]
 
-                print("", end="\r")
-                print(
+                logger.info("", end="\r")
+                logger.info(
                     fmt_str.format("#" * ((i * progress_n) // N), 100 * i / N),
                     end="",
                     flush=True,
@@ -272,9 +272,8 @@ class ModelNet40Dataset(PointCloudDataset):
                 input_points += [points]
                 input_normals += [normals]
 
-            print("", end="\r")
-            print(fmt_str.format("#" * progress_n, 100), end="", flush=True)
-            print()
+            logger.info("", end="\r")
+            logger.info(fmt_str.format("#" * progress_n, 100), end="", flush=True)
 
             # Get labels
             label_names = ["_".join(name.split("_")[:-1]) for name in names]
@@ -286,7 +285,7 @@ class ModelNet40Dataset(PointCloudDataset):
 
         lengths = [p.shape[0] for p in input_points]
         sizes = [length * 4 * 6 for length in lengths]
-        print(f"{np.sum(sizes) * 1e-6:.1f} MB loaded in {time.time() - t0:.1f}s")
+        logger.info(f"{np.sum(sizes) * 1e-6:.1f} MB loaded in {time.time() - t0:.1f}s")
 
         if orient_correction:
             input_points = [pp[:, [0, 2, 1]] for pp in input_points]
@@ -437,8 +436,7 @@ class ModelNet40Sampler(Sampler):
         ##############################
         # Previously saved calibration
         ##############################
-
-        print("\nStarting Calibration (use verbose=True for more details)")
+        logger.info("Starting calibration (use verbose=True for more details)")
         t0 = time.time()
 
         redo = False
@@ -464,15 +462,15 @@ class ModelNet40Sampler(Sampler):
             redo = True
 
         if verbose:
-            print("\nPrevious calibration found:")
-            print("Check batch limit dictionary")
+            logger.info("\nPrevious calibration found:")
+            logger.info("Check batch limit dictionary")
             if key in batch_lim_dict:
                 color = BColors.OKGREEN.value
                 v = str(int(batch_lim_dict[key]))
             else:
                 color = BColors.FAIL.value
                 v = "?"
-            print(f'{color}"{key}": {v}{BColors.ENDC.value}')
+            logger.info(f'{color}"{key}": {v}{BColors.ENDC.value}')
 
         # Neighbors limit
         # ***************
@@ -505,7 +503,7 @@ class ModelNet40Sampler(Sampler):
             redo = True
 
         if verbose:
-            print("Check neighbors limit dictionary")
+            logger.info("Check neighbors limit dictionary")
             for layer_ind in range(self.dataset.config.num_layers):
                 dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
                 if self.dataset.config.deform_layers[layer_ind]:
@@ -520,7 +518,7 @@ class ModelNet40Sampler(Sampler):
                 else:
                     color = BColors.FAIL.value
                     v = "?"
-                print(f'{color}"{key}": {v}{BColors.ENDC.value}')
+                logger.info(f'{color}"{key}": {v}{BColors.ENDC.value}')
 
         if redo:
 
@@ -605,7 +603,7 @@ class ModelNet40Sampler(Sampler):
                     if verbose and (t - last_display) > 1.0:
                         last_display = t
                         message = "Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}"
-                        print(message.format(i, estim_b, int(self.batch_limit)))
+                        logger.info(message.format(i, estim_b, int(self.batch_limit)))
 
                 if breaking:
                     break
@@ -622,11 +620,11 @@ class ModelNet40Sampler(Sampler):
                     neighb_hists = neighb_hists[:, :-1]
                 hist_n = neighb_hists.shape[1]
 
-                print("\n**************************************************\n")
+                logger.info("**************************************************")
                 line0 = "neighbors_num "
                 for layer in range(neighb_hists.shape[0]):
                     line0 += f"|  layer {layer:2d}  "
-                print(line0)
+                logger.info(line0)
                 for neighb_size in range(hist_n):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
@@ -638,11 +636,10 @@ class ModelNet40Sampler(Sampler):
                             color, neighb_hists[layer, neighb_size], BColors.ENDC.value
                         )
 
-                    print(line0)
+                    logger.info(line0)
 
-                print("\n**************************************************\n")
-                print("\nchosen neighbors limits: ", percentiles)
-                print()
+                logger.info("**************************************************\n")
+                logger.info("Chosen neighbors limits: ", percentiles)
 
             # Save batch_limit dictionary
             key = "{:.3f}_{:d}".format(
@@ -664,7 +661,7 @@ class ModelNet40Sampler(Sampler):
             with open(neighb_lim_file, "wb") as file:
                 pickle.dump(neighb_lim_dict, file)
 
-        print(f"Calibration done in {time.time() - t0:.1f}s\n")
+        logger.info(f"Calibration done in {time.time() - t0:.1f}s")
         return
 
 
@@ -950,13 +947,13 @@ def debug_sampling(dataset, sampler, loader):
         for _, _, labels, _, _ in loader:
 
             label_sum += np.bincount(labels.numpy(), minlength=dataset.num_classes)
-            print(label_sum)
+            logger.info(label_sum)
 
-            print("******************")
-        print("*******************************************")
+            logger.info("******************")
+        logger.info("*******************************************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)
 
 
 def debug_timing(dataset, sampler, loader):
@@ -989,12 +986,12 @@ def debug_timing(dataset, sampler, loader):
             if (t[-1] - last_display) > -1.0:
                 last_display = t[-1]
                 message = "Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f}"
-                print(message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b))
+                logger.info(message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b))
 
-        print("************* Epoch ended *************")
+        logger.info("************* Epoch ended *************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)
 
 
 def debug_show_clouds(dataset, sampler, loader):
@@ -1077,12 +1074,12 @@ def debug_batch_and_neighbors_calib(dataset, sampler, loader):
             if (t[-1] - last_display) > 1.0:
                 last_display = t[-1]
                 message = "Step {:08d} -> Average timings (ms/batch) {:8.2f} {:8.2f} "
-                print(message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1]))
+                logger.info(message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1]))
 
-        print("************* Epoch ended *************")
+        logger.info("************* Epoch ended *************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)
 
 
 class ModelNet40WorkerInitDebug:
@@ -1096,16 +1093,16 @@ class ModelNet40WorkerInitDebug:
 
         # Print workers info
         worker_info = get_worker_info()
-        print(worker_info)
+        logger.info(worker_info)
 
         # Get associated dataset
         dataset = worker_info.dataset  # the dataset copy in this worker process
 
         # In windows, each worker has its own copy of the dataset. In Linux, this is shared in
         # memory
-        print(dataset.input_labels.__array_interface__["data"])
-        print(worker_info.dataset.input_labels.__array_interface__["data"])
-        print(self.dataset.input_labels.__array_interface__["data"])
+        logger.info(dataset.input_labels.__array_interface__["data"])
+        logger.info(worker_info.dataset.input_labels.__array_interface__["data"])
+        logger.info(self.dataset.input_labels.__array_interface__["data"])
 
         # configure the dataset to only process the split workload
 

@@ -21,17 +21,11 @@ class Config:
     Class containing the parameters you want to modify for this dataset
     """
 
-    ##################
     # CLI parameters
-    ##################
-
     dataset = ""  # pointed by the -s/--dataset option
     data_folder = None  # pointed by the -d/--datapath option
 
-    ##################
     # Input parameters
-    ##################
-
     # Do we need to save convergence
     saving = True
 
@@ -53,10 +47,7 @@ class Config:
     # Number of CPU threads for the input pipeline
     input_threads = 8
 
-    ##################
     # Model parameters
-    ##################
-
     # Architecture definition. List of blocks
     architecture = []
 
@@ -74,10 +65,7 @@ class Config:
     # For segmentation models : ratio between the segmented area and the input area
     segmentation_ratio = 1.0
 
-    ###################
     # KPConv parameters
-    ###################
-
     # Number of kernel points
     num_kernel_points = 15
 
@@ -117,10 +105,7 @@ class Config:
     val_radius = 51.0
     max_val_points = 50000
 
-    #####################
     # Training parameters
-    #####################
-
     # Network optimizer parameters (learning rate and momentum)
     learning_rate = 1e-3
     momentum = 0.9
@@ -207,8 +192,6 @@ class Config:
                 continue
 
             # Convolution neighbors indices
-            # *****************************
-
             deform_layer = False
             if layer_blocks and np.any(["deformable" in blck for blck in layer_blocks]):
                 deform_layer = True

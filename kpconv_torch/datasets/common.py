@@ -1,5 +1,5 @@
-import logging
 import numpy as np
+import logging
 from torch.utils.data import Dataset
 
 import radius_neighbors as cpp_neighbors
@@ -7,6 +7,9 @@ import grid_subsampling as cpp_subsampling
 from kpconv_torch.kernels.kernel_points import create_3D_rotations
 from kpconv_torch.utils.mayavi_visu import show_ModelNet_examples
 from kpconv_torch.utils.tester import get_test_save_path
+
+
+logger = logging.getLogger(__name__)
 
 
 def grid_subsampling(points, features=None, labels=None, sampleDl=0.1, verbose=0):

@@ -151,10 +151,18 @@ def main():
 
     args = parser.parse_args()
 
+    # Define logger
+    log_dir = Path.home() / ".logs_kpconv_torch"
+    log_dir.mkdir(exist_ok=True)
+    date = datetime.now().strftime(format="%Y%m%d_%H%M%S")
+    log_filename = args.command + "_" + date + ".log"
+    log_filepath = log_dir / log_filename
+    logging.basicConfig(filename=log_filepath, level=args.log_level)
+
     if "func" in vars(args):
         args.func(args)
     else:
-        parser.print_help()
+        parser.logger.info_help()
 
 
 if __name__ == "__main__":

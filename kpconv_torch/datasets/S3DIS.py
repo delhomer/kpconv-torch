@@ -88,7 +88,7 @@ class S3DISDataset(PointCloudDataset):
         # Path of the training files
         self.train_files_path = os.path.join(self.path, "original_ply")
         if not os.path.exists(self.train_files_path):
-            print("The ply folder does not exist, create it.")
+            logger.info("The ply folder does not exist, create it.")
             os.makedirs(self.train_files_path)
 
         # Create path for files
@@ -214,7 +214,7 @@ class S3DISDataset(PointCloudDataset):
                         message += " | "
                     elif self.worker_waiting[wi] == 2:
                         message += " o "
-                print(message)
+                logger.info(message)
                 self.worker_waiting[wid] = 0
 
             with self.worker_lock:
@@ -230,7 +230,7 @@ class S3DISDataset(PointCloudDataset):
                             message += " | "
                         elif self.worker_waiting[wi] == 2:
                             message += " o "
-                    print(message)
+                    logger.info(message)
                     self.worker_waiting[wid] = 1
 
                 # Get potential minimum
@@ -387,7 +387,7 @@ class S3DISDataset(PointCloudDataset):
                     message += " | "
                 elif self.worker_waiting[wi] == 2:
                     message += " o "
-            print(message)
+            logger.info(message)
             self.worker_waiting[wid] = 2
 
         t += [time.time()]
@@ -395,8 +395,8 @@ class S3DISDataset(PointCloudDataset):
         # Display timings
         debugT = False
         if debugT:
-            print("\n************************\n")
-            print("Timings:")
+            logger.info("************************")
+            logger.info("Timings:")
             ti = 0
             N = 5
             mess = "Init ...... {:5.1f}ms /"
@@ -405,7 +405,7 @@ class S3DISDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Pots ...... {:5.1f}ms /"
             loop_times = [
@@ -413,7 +413,7 @@ class S3DISDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Sphere .... {:5.1f}ms /"
             loop_times = [
@@ -421,7 +421,7 @@ class S3DISDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Collect ... {:5.1f}ms /"
             loop_times = [
@@ -429,7 +429,7 @@ class S3DISDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Augment ... {:5.1f}ms /"
             loop_times = [
@@ -437,15 +437,15 @@ class S3DISDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += N * (len(stack_lengths) - 1) + 1
-            print(f"concat .... {1000 * (t[ti + 1] - t[ti]):5.1f}ms")
+            logger.info(f"concat .... {1000 * (t[ti + 1] - t[ti]):5.1f}ms")
             ti += 1
-            print(f"input ..... {1000 * (t[ti + 1] - t[ti]):5.1f}ms")
+            logger.info(f"input ..... {1000 * (t[ti + 1] - t[ti]):5.1f}ms")
             ti += 1
-            print(f"stack ..... {1000 * (t[ti + 1] - t[ti]):5.1f}ms")
+            logger.info(f"stack ..... {1000 * (t[ti + 1] - t[ti]):5.1f}ms")
             ti += 1
-            print("\n************************\n")
+            logger.info("************************")
         return input_list
 
     def random_item(self, batch_i):
@@ -583,14 +583,14 @@ class S3DISDataset(PointCloudDataset):
         return input_list
 
     def prepare_S3DIS_ply(self):
-        print("\nPreparing ply files")
+        logger.info("Preparing ply files")
         t0 = time.time()
 
         for cloud_name in self.cloud_names:
             # Pass if the cloud has already been computed
             cloud_file = os.path.join(self.train_files_path, cloud_name + ".ply")
             if os.path.exists(cloud_file):
-                print(f"{cloud_file} does already exist.")
+                logger.info(f"{cloud_file} does already exist.")
                 continue
 
             # Get rooms of the current cloud
@@ -609,7 +609,7 @@ class S3DISDataset(PointCloudDataset):
             # Loop over rooms
             for i, room_folder in enumerate(room_folders):
 
-                print(
+                logger.info(
                     "Cloud %s - Room %d/%d : %s"
                     % (cloud_name, i + 1, len(room_folders), room_folder.split("/")[-1])
                 )
@@ -662,7 +662,7 @@ class S3DISDataset(PointCloudDataset):
                 ["x", "y", "z", "red", "green", "blue", "classification"],
             )
 
-        print(f"Done in {time.time() - t0:.1f}s")
+        logger.info(f"Done in {time.time() - t0:.1f}s")
         return
 
     def load_kdtree(self, cloud_name, file_path):
@@ -673,14 +673,14 @@ class S3DISDataset(PointCloudDataset):
         KDTree_file = os.path.join(self.tree_path, f"{cloud_name}_KDTree.pkl")
         sub_ply_file = os.path.join(self.tree_path, f"{cloud_name}.ply")
 
-        print("KDTree file:", KDTree_file)
-        print("Sub PLY file:", sub_ply_file)
-        print("File path:", file_path)
+        logger.info(f"KDTree file: {KDTree_file}")
+        logger.info(f"Sub PLY file: {sub_ply_file}")
+        logger.info(f"File path: {file_path}")
         # Check if inputs have already been computed
         if os.path.exists(KDTree_file):
-            print(
-                f"\nFound KDTree for cloud {cloud_name}, "
-                f"subsampled at {self.config.first_subsampling_dl:3f}"
+            logger.info(
+                f"Found KDTree for cloud {cloud_name}, \
+                        subsampled at {self.config.first_subsampling_dl:3f}"
             )
 
             # read ply with data
@@ -691,9 +691,9 @@ class S3DISDataset(PointCloudDataset):
                 search_tree = pickle.load(f)
 
         else:
-            print(
-                f"\nPreparing KDTree for cloud {cloud_name}, "
-                f"subsampled at {self.config.first_subsampling_dl:3f}."
+            logger.info(
+                f"Preparing KDTree for cloud {cloud_name}, \
+                    subsampled at {self.config.first_subsampling_dl:3f}"
             )
 
             points, colors, labels = self.read_input(file_path)
@@ -730,7 +730,7 @@ class S3DISDataset(PointCloudDataset):
         self.input_labels += [sub_labels]
 
         size = sub_colors.shape[0] * 4 * 7
-        print(f"{size * 1e-6:.1f} MB loaded in {time.time() - t0:1f}s")
+        logger.info(f"{size * 1e-6:.1f} MB loaded in {time.time() - t0:1f}s")
         return search_tree
 
     def load_coarse_potential_locations(self, cloud_name, kdtree_data):
@@ -764,11 +764,11 @@ class S3DISDataset(PointCloudDataset):
         # Fill data containers
         self.pot_trees += [search_tree]
 
-        print(f"Done in {time.time() - t0:.1f}s")
+        logger.info(f"Done in {time.time() - t0:.1f}s")
 
     def load_projection_indices(self, cloud_name, file_path, input_tree):
 
-        print("\nPreparing reprojection indices for testing")
+        logger.info("Preparing reprojection indices for testing")
 
         # Restart timer
         t0 = time.time()
@@ -793,7 +793,7 @@ class S3DISDataset(PointCloudDataset):
 
         self.test_proj += [proj_inds]
         self.validation_labels += [labels]
-        print(f"{cloud_name} done in {time.time() - t0:.1f}s")
+        logger.info(f"{cloud_name} done in {time.time() - t0:.1f}s")
 
     def set_batch_selection_parameters(self):
         # Initialize value for batch limit (max number of points per batch).
@@ -1056,7 +1056,7 @@ class S3DISSampler(Sampler):
                     message = (
                         "Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d},  //  {:.1f}ms {:.1f}ms"
                     )
-                    print(
+                    logger.info(
                         message.format(
                             i,
                             estim_b,
@@ -1084,8 +1084,7 @@ class S3DISSampler(Sampler):
         ##############################
         # Previously saved calibration
         ##############################
-
-        print("\nStarting Calibration (use verbose=True for more details)")
+        logger.info("Starting calibration (use verbose=True for more details)")
         t0 = time.time()
 
         redo = force_redo
@@ -1116,15 +1115,15 @@ class S3DISSampler(Sampler):
             redo = True
 
         if verbose:
-            print("\nPrevious calibration found:")
-            print("Check batch limit dictionary")
+            logger.info("Previous calibration found:")
+            logger.info("Check batch limit dictionary")
             if key in batch_lim_dict:
                 color = BColors.OKGREEN.value
                 v = str(int(batch_lim_dict[key]))
             else:
                 color = BColors.FAIL.value
                 v = "?"
-            print(f'{color}"{key}": {v}{BColors.ENDC.value}')
+            logger.info(f'{color}"{key}": {v}{BColors.ENDC.value}')
 
         # Neighbors limit
         # ***************
@@ -1157,7 +1156,7 @@ class S3DISSampler(Sampler):
             redo = True
 
         if verbose:
-            print("Check neighbors limit dictionary")
+            logger.info("Check neighbors limit dictionary")
             for layer_ind in range(self.dataset.config.num_layers):
                 dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
                 if self.dataset.config.deform_layers[layer_ind]:
@@ -1172,7 +1171,7 @@ class S3DISSampler(Sampler):
                 else:
                     color = BColors.FAIL.value
                     v = "?"
-                print(f'{color}"{key}": {v}{BColors.ENDC.value}')
+                logger.info(f'{color}"{key}": {v}{BColors.ENDC.value}')
 
         if redo:
 
@@ -1284,7 +1283,7 @@ class S3DISSampler(Sampler):
                     if verbose and (t - last_display) > 1.0:
                         last_display = t
                         message = "Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}"
-                        print(message.format(i, estim_b, int(self.dataset.batch_limit)))
+                        logger.info(message.format(i, estim_b, int(self.dataset.batch_limit)))
 
                     # Debug plots
                     debug_in.append(int(batch.points[0].shape[0]))
@@ -1299,12 +1298,12 @@ class S3DISSampler(Sampler):
             if not breaking:
                 import matplotlib.pyplot as plt
 
-                print(
+                logger.info(
                     "ERROR: It seems that the calibration have not reached convergence. "
                     "Here are some plot to understand why:"
                 )
-                print("If you notice unstability, reduce the expected_N value")
-                print("If convergece is too slow, increase the expected_N value")
+                logger.info("If you notice unstability, reduce the expected_N value")
+                logger.info("If convergece is too slow, increase the expected_N value")
 
                 plt.figure()
                 plt.plot(debug_in)
@@ -1330,11 +1329,11 @@ class S3DISSampler(Sampler):
                     neighb_hists = neighb_hists[:, :-1]
                 hist_n = neighb_hists.shape[1]
 
-                print("\n**************************************************\n")
+                logger.info("**************************************************")
                 line0 = "neighbors_num "
                 for layer in range(neighb_hists.shape[0]):
                     line0 += f"|  layer {layer:2d}  "
-                print(line0)
+                logger.info(line0)
                 for neighb_size in range(hist_n):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
@@ -1346,11 +1345,10 @@ class S3DISSampler(Sampler):
                             color, neighb_hists[layer, neighb_size], BColors.ENDC.value
                         )
 
-                    print(line0)
+                    logger.info(line0)
 
-                print("\n**************************************************\n")
-                print("\nchosen neighbors limits: ", percentiles)
-                print()
+                logger.info("**************************************************\n")
+                logger.info("Chosen neighbors limits: {percentiles}")
 
             # Save batch_limit dictionary
             if self.dataset.use_potentials:
@@ -1377,7 +1375,7 @@ class S3DISSampler(Sampler):
             with open(neighb_lim_file, "wb") as file:
                 pickle.dump(neighb_lim_dict, file)
 
-        print(f"Calibration done in {time.time() - t0:.1f}s\n")
+        logger.info(f"Calibration done in {time.time() - t0:.1f}s\n")
         return
 
 
@@ -1686,8 +1684,8 @@ def debug_upsampling(dataset, loader):
             pc2 = batch.points[2].numpy()
             up1 = batch.upsamples[1].numpy()
 
-            print(pc1.shape, "=>", pc2.shape)
-            print(up1.shape, np.max(up1))
+            logger.info(pc1.shape, "=>", pc2.shape)
+            logger.info(up1.shape, np.max(up1))
 
             pc2 = np.vstack((pc2, np.zeros_like(pc2[:1, :])))
 
@@ -1697,15 +1695,14 @@ def debug_upsampling(dataset, loader):
             neighbs0 = pc2[neighbs0, :] - p0
             d2 = np.sum(neighbs0**2, axis=1)
 
-            print(neighbs0.shape)
-            print(neighbs0[:5])
-            print(d2[:5])
-
-            print("******************")
-        print("*******************************************")
+            logger.info(neighbs0.shape)
+            logger.info(neighbs0[:5])
+            logger.info(d2[:5])
+            logger.info("******************")
+        logger.info("*******************************************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)
 
 
 def debug_timing(dataset, loader):
@@ -1739,14 +1736,14 @@ def debug_timing(dataset, loader):
             if (t[-1] - last_display) > -1.0:
                 last_display = t[-1]
                 message = "Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f} - {:.0f}"
-                print(
+                logger.info(
                     message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b, estim_N)
                 )
 
-        print("************* Epoch ended *************")
+        logger.info("************* Epoch ended *************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)
 
 
 def debug_show_clouds(dataset, loader):
@@ -1759,45 +1756,45 @@ def debug_show_clouds(dataset, loader):
         for batch in loader:
 
             # Print characteristics of input tensors
-            print("\nPoints tensors")
+            logger.info("Points tensors")
             for i in range(L):
-                print(batch.points[i].dtype, batch.points[i].shape)
-            print("\nNeigbors tensors")
+                logger.info(batch.points[i].dtype, batch.points[i].shape)
+            logger.info("Neigbors tensors")
             for i in range(L):
-                print(batch.neighbors[i].dtype, batch.neighbors[i].shape)
-            print("\nPools tensors")
+                logger.info(batch.neighbors[i].dtype, batch.neighbors[i].shape)
+            logger.info("Pools tensors")
             for i in range(L):
-                print(batch.pools[i].dtype, batch.pools[i].shape)
-            print("\nStack lengths")
+                logger.info(batch.pools[i].dtype, batch.pools[i].shape)
+            logger.info("Stack lengths")
             for i in range(L):
-                print(batch.lengths[i].dtype, batch.lengths[i].shape)
-            print("\nFeatures")
-            print(batch.features.dtype, batch.features.shape)
-            print("\nLabels")
-            print(batch.labels.dtype, batch.labels.shape)
-            print("\nAugment Scales")
-            print(batch.scales.dtype, batch.scales.shape)
-            print("\nAugment Rotations")
-            print(batch.rots.dtype, batch.rots.shape)
-            print("\nModel indices")
-            print(batch.model_inds.dtype, batch.model_inds.shape)
+                logger.info(batch.lengths[i].dtype, batch.lengths[i].shape)
+            logger.info("Features")
+            logger.info(batch.features.dtype, batch.features.shape)
+            logger.info("Labels")
+            logger.info(batch.labels.dtype, batch.labels.shape)
+            logger.info("Augment Scales")
+            logger.info(batch.scales.dtype, batch.scales.shape)
+            logger.info("Augment Rotations")
+            logger.info(batch.rots.dtype, batch.rots.shape)
+            logger.info("Model indices")
+            logger.info(batch.model_inds.dtype, batch.model_inds.shape)
 
-            print("\nAre input tensors pinned")
-            print(batch.neighbors[0].is_pinned())
-            print(batch.neighbors[-1].is_pinned())
-            print(batch.points[0].is_pinned())
-            print(batch.points[-1].is_pinned())
-            print(batch.labels.is_pinned())
-            print(batch.scales.is_pinned())
-            print(batch.rots.is_pinned())
-            print(batch.model_inds.is_pinned())
+            logger.info("Are input tensors pinned")
+            logger.info(batch.neighbors[0].is_pinned())
+            logger.info(batch.neighbors[-1].is_pinned())
+            logger.info(batch.points[0].is_pinned())
+            logger.info(batch.points[-1].is_pinned())
+            logger.info(batch.labels.is_pinned())
+            logger.info(batch.scales.is_pinned())
+            logger.info(batch.rots.is_pinned())
+            logger.info(batch.model_inds.is_pinned())
 
             show_input_batch(batch)
 
-        print("*******************************************")
+        logger.info("*******************************************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)
 
 
 def debug_batch_and_neighbors_calib(dataset, loader):
@@ -1825,9 +1822,9 @@ def debug_batch_and_neighbors_calib(dataset, loader):
             if (t[-1] - last_display) > 1.0:
                 last_display = t[-1]
                 message = "Step {:08d} -> Average timings (ms/batch) {:8.2f} {:8.2f} "
-                print(message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1]))
+                logger.info(message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1]))
 
-        print("************* Epoch ended *************")
+        logger.info("************* Epoch ended *************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)

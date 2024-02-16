@@ -240,21 +240,21 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
         if field.ndim < 2:
             field_list[i] = field.reshape(-1, 1)
         if field.ndim > 2:
-            print("fields have more than 2 dimensions")
+            logger.debug("Fields have more than 2 dimensions")
             return False
     # check all fields have the same number of data
     n_points = [field.shape[0] for field in field_list]
     if not np.all(np.equal(n_points, n_points[0])):
-        print(
-            f"wrong field dimensions: all fields should have {n_points[0]} "
-            f"points, some have {np.min(n_points)}."
+        logging.debug(
+            f"Wrong field dimensions: all fields should have {n_points[0]} \
+            points, some have {np.min(n_points)}."
         )
         return False
 
     # Check if field_names and field_list have same nb of column
     n_fields = np.sum([field.shape[1] for field in field_list])
     if n_fields != len(field_names):
-        print("wrong number of field names")
+        logging.debug("Wrong number of field names")
         return False
 
     # Add extension if not there

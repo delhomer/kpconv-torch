@@ -459,8 +459,8 @@ class SemanticKittiDataset(PointCloudDataset):
         # Display timings
         debugT = False
         if debugT:
-            print("\n************************\n")
-            print("Timings:")
+            logger.info("************************")
+            logger.info("Timings:")
             ti = 0
             N = 9
             mess = "Init ...... {:5.1f}ms /"
@@ -469,7 +469,7 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Lock ...... {:5.1f}ms /"
             loop_times = [
@@ -477,7 +477,7 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Init ...... {:5.1f}ms /"
             loop_times = [
@@ -485,7 +485,7 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Load ...... {:5.1f}ms /"
             loop_times = [
@@ -493,7 +493,7 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Subs ...... {:5.1f}ms /"
             loop_times = [
@@ -501,7 +501,7 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Drop ...... {:5.1f}ms /"
             loop_times = [
@@ -509,7 +509,7 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Reproj .... {:5.1f}ms /"
             loop_times = [
@@ -517,7 +517,7 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Augment ... {:5.1f}ms /"
             loop_times = [
@@ -525,7 +525,7 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += 1
             mess = "Stack ..... {:5.1f}ms /"
             loop_times = [
@@ -533,15 +533,15 @@ class SemanticKittiDataset(PointCloudDataset):
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
-            print(mess.format(np.sum(loop_times)))
+            logger.info(mess.format(np.sum(loop_times)))
             ti += N * (len(stack_lengths) - 1) + 1
-            print(f"concat .... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
+            logger.info(f"concat .... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
             ti += 1
-            print(f"input ..... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
+            logger.info(f"input ..... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
             ti += 1
-            print(f"stack ..... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
+            logger.info(f"stack ..... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
             ti += 1
-            print("\n************************\n")
+            logger.info("************************")
 
         return [self.config.num_layers] + input_list
 
@@ -609,7 +609,7 @@ class SemanticKittiDataset(PointCloudDataset):
                 else:
 
                     # Initiate dict
-                    print(f"Preparing seq {seq} class frames. (Long but one time only)")
+                    logger.info(f"Preparing seq {seq} class frames. (Long but one time only)")
 
                     # Class frames as a boolean mask
                     seq_class_frames = np.zeros((len(seq_frames), self.num_classes), dtype=np.bool)
@@ -886,8 +886,7 @@ class SemanticKittiSampler(Sampler):
         ##############################
         # Previously saved calibration
         ##############################
-
-        print("\nStarting Calibration of max_in_points value (use verbose=True for more details)")
+        logger.info("Starting calibration (use verbose=True for more details)")
         t0 = time.time()
 
         redo = force_redo
@@ -917,15 +916,15 @@ class SemanticKittiSampler(Sampler):
             redo = True
 
         if verbose:
-            print("\nPrevious calibration found:")
-            print("Check max_in limit dictionary")
+            logger.info("Previous calibration found:")
+            logger.info("Check max_in limit dictionary")
             if key in max_in_lim_dict:
                 color = BColors.OKGREEN.value
                 v = str(int(max_in_lim_dict[key]))
             else:
                 color = BColors.FAIL.value
                 v = "?"
-            print(f'{color}"{key}": {v}{BColors.ENDC.value}')
+            logger.info(f'{color}"{key}": {v}{BColors.ENDC.value}')
 
         if redo:
 
@@ -963,7 +962,7 @@ class SemanticKittiSampler(Sampler):
                     if t - last_display > 1.0:
                         last_display = t
                         message = "Collecting {:d} in_points: {:5.1f}%"
-                        print(message.format(N, 100 * len(all_lengths) / N))
+                        logger.info(message.format(N, 100 * len(all_lengths) / N))
 
                 if breaking:
                     break
@@ -976,7 +975,7 @@ class SemanticKittiSampler(Sampler):
                 pass
 
             # Save max_in_limit dictionary
-            print("New max_in_p = ", self.dataset.max_in_p)
+            logger.info("New max_in_p = ", self.dataset.max_in_p)
             max_in_lim_dict[key] = self.dataset.max_in_p
             with open(max_in_lim_file, "wb") as file:
                 pickle.dump(max_in_lim_dict, file)
@@ -987,7 +986,7 @@ class SemanticKittiSampler(Sampler):
         else:
             config.max_val_points = self.dataset.max_in_p
 
-        print(f"Calibration done in {time.time() - t0:.1f}s\n")
+        logger.info(f"Calibration done in {time.time() - t0:.1f}s\n")
         return
 
     def calibration(self, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
@@ -1005,8 +1004,7 @@ class SemanticKittiSampler(Sampler):
         ##############################
         # Previously saved calibration
         ##############################
-
-        print("\nStarting Calibration (use verbose=True for more details)")
+        logger.info("Starting calibration (use verbose=True for more details)")
         t0 = time.time()
 
         redo = force_redo
@@ -1038,15 +1036,15 @@ class SemanticKittiSampler(Sampler):
             redo = True
 
         if verbose:
-            print("\nPrevious calibration found:")
-            print("Check batch limit dictionary")
+            logger.info("\nPrevious calibration found:")
+            logger.info("Check batch limit dictionary")
             if key in batch_lim_dict:
                 color = BColors.OKGREEN.value
                 v = str(int(batch_lim_dict[key]))
             else:
                 color = BColors.FAIL.value
                 v = "?"
-            print(f'{color}"{key}": {v}{BColors.ENDC.value}')
+            logger.info(f'{color}"{key}": {v}{BColors.ENDC.value}')
 
         # Neighbors limit
         # ***************
@@ -1079,7 +1077,7 @@ class SemanticKittiSampler(Sampler):
             redo = True
 
         if verbose:
-            print("Check neighbors limit dictionary")
+            logger.info("Check neighbors limit dictionary")
             for layer_ind in range(self.dataset.config.num_layers):
                 dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
                 if self.dataset.config.deform_layers[layer_ind]:
@@ -1094,7 +1092,7 @@ class SemanticKittiSampler(Sampler):
                 else:
                     color = BColors.FAIL.value
                     v = "?"
-                print(f'{color}"{key}": {v}{BColors.ENDC.value}')
+                logger.info(f'{color}"{key}": {v}{BColors.ENDC.value}')
 
         if redo:
 
@@ -1188,7 +1186,7 @@ class SemanticKittiSampler(Sampler):
                     if verbose and (t - last_display) > 1.0:
                         last_display = t
                         message = "Step {:5d}  estim_b ={:5.2f} batch_limit ={:7d}"
-                        print(message.format(i, estim_b, int(self.dataset.batch_limit[0])))
+                        logger.info(message.format(i, estim_b, int(self.dataset.batch_limit[0])))
 
                 if breaking:
                     break
@@ -1205,11 +1203,11 @@ class SemanticKittiSampler(Sampler):
                     neighb_hists = neighb_hists[:, :-1]
                 hist_n = neighb_hists.shape[1]
 
-                print("\n**************************************************\n")
+                logger.info("**************************************************")
                 line0 = "neighbors_num "
                 for layer in range(neighb_hists.shape[0]):
                     line0 += f"|  layer {layer:2d}  "
-                print(line0)
+                logger.info(line0)
                 for neighb_size in range(hist_n):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
@@ -1221,25 +1219,24 @@ class SemanticKittiSampler(Sampler):
                             color, neighb_hists[layer, neighb_size], BColors.ENDC.value
                         )
 
-                    print(line0)
+                    logger.info(line0)
 
-                print("\n**************************************************\n")
-                print("\nchosen neighbors limits: ", percentiles)
-                print()
+                logger.info("**************************************************\n")
+                logger.info("Chosen neighbors limits: ", percentiles)
 
             # Control max_in_points value
-            print("\n**************************************************\n")
+            logger.info("**************************************************\n")
             if cropped_n > 0.3 * all_n:
                 color = BColors.FAIL.value
             else:
                 color = BColors.OKGREEN.value
-            print(f"Current value of max_in_points {self.dataset.max_in_p:d}")
-            print(
+            logger.info(f"Current value of max_in_points {self.dataset.max_in_p:d}")
+            logger.info(
                 f"  > {color}{100 * cropped_n / all_n:.1f}% inputs are cropped{BColors.ENDC.value}"
             )
             if cropped_n > 0.3 * all_n:
-                print("\nTry a higher max_in_points value\n")
-            print("\n**************************************************\n")
+                logger.info("Try a higher max_in_points value")
+            logger.info("**************************************************")
 
             # Save batch_limit dictionary
             key = (
@@ -1263,7 +1260,7 @@ class SemanticKittiSampler(Sampler):
             with open(neighb_lim_file, "wb") as file:
                 pickle.dump(neighb_lim_dict, file)
 
-        print(f"Calibration done in {time.time() - t0:.1f}s\n")
+        logger.info(f"Calibration done in {time.time() - t0:.1f}s\n")
         return
 
 
@@ -1607,14 +1604,14 @@ def debug_timing(dataset, loader):
             if (t[-1] - last_display) > -1.0:
                 last_display = t[-1]
                 message = "Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f} - {:.0f}"
-                print(
+                logger.info(
                     message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b, estim_N)
                 )
 
-        print("************* Epoch ended *************")
+        logger.info("************* Epoch ended *************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)
 
 
 def debug_class_w(dataset, loader):
@@ -1627,8 +1624,8 @@ def debug_class_w(dataset, loader):
     s = "{:^6}|".format("step")
     for c in dataset.label_names:
         s += f"{c[:4]:^6}"
-    print(s)
-    print(6 * "-" + "|" + 6 * dataset.num_classes * "-")
+    logger.info(s)
+    logger.info(6 * "-" + "|" + 6 * dataset.num_classes * "-")
 
     for _ in range(10):
         for batch in loader:
@@ -1644,5 +1641,5 @@ def debug_class_w(dataset, loader):
             s = f"{i:^6d}|"
             for pp in proportions:
                 s += f"{pp:^6.1f}"
-            print(s)
+            logger.info(s)
             i += 1

@@ -117,9 +117,8 @@ def visualize(datapath: Path, trained_model: Path) -> None:
     # Prepare Data
     ##############
 
-    print()
-    print("Data Preparation")
-    print("****************")
+    logger.info("Data Preparation")
+    logger.info("****************")
 
     # Initiate dataset
     if config.dataset.startswith("ModelNet40"):
@@ -151,8 +150,8 @@ def visualize(datapath: Path, trained_model: Path) -> None:
     # Calibrate samplers
     test_sampler.calibration(test_loader, verbose=True)
 
-    print("\nModel Preparation")
-    print("*****************")
+    logger.info("Model Preparation")
+    logger.info("*****************")
 
     # Define network model
     t1 = time.time()
@@ -165,10 +164,10 @@ def visualize(datapath: Path, trained_model: Path) -> None:
 
     # Define a visualizer class
     visualizer = ModelVisualizer(net, config, chkp_path=chosen_chkp, on_gpu=False)
-    print(f"Done in {time.time() - t1:.1f}s\n")
+    logger.info(f"Done in {time.time() - t1:.1f}s\n")
 
-    print("\nStart visualization")
-    print("*******************")
+    logger.info("Start visualization")
+    logger.info("*******************")
 
     # Training
     visualizer.show_deformable_kernels(net, test_loader, config, deform_idx)

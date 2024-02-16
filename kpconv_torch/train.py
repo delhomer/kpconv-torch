@@ -60,13 +60,7 @@ def train(datapath: Path, trained_model: Path, output_dir: Path, dataset: str) -
     # Set GPU visible device
     os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 
-    ##############
-    # Prepare Data
-    ##############
-    print()
-    print("Data Preparation")
-    print("****************")
-
+    logger.info("Data Preparation")
     # Initialize configuration class
     if dataset == "ModelNet40":
         config = ModelNet40Config()
@@ -216,8 +210,8 @@ def train(datapath: Path, trained_model: Path, output_dir: Path, dataset: str) -
     training_sampler.calibration(training_loader, verbose=True)
     test_sampler.calibration(test_loader, verbose=True)
 
-    print("\nModel Preparation")
-    print("*****************")
+    logger.info("Model Preparation")
+    logger.info("*****************")
 
     # Define network model
     t1 = time.time()
@@ -261,16 +255,16 @@ def train(datapath: Path, trained_model: Path, output_dir: Path, dataset: str) -
 
     # Define a trainer class
     trainer = ModelTrainer(net, config, chkp_path=chosen_chkp, train_save_path=train_save_path)
-    print(f"Done in {time.time() - t1:.1f}s\n")
+    logger.info(f"Done in {time.time() - t1:.1f}s\n")
 
-    print("\nStart training")
-    print("**************")
+    logger.info("Start training")
+    logger.info("**************")
 
     # Training
     trainer.train(net, training_loader, test_loader, config)
 
-    print("Forcing exit now")
+    logger.info("Forcing exit now")
     os.kill(os.getpid(), signal.SIGINT)
 
     end = time.time()
-    print(time.strftime("%H:%M:%S", time.gmtime(end - start)))
+    logger.info(time.strftime("%H:%M:%S", time.gmtime(end - start)))

@@ -45,7 +45,7 @@ class ModelTester:
         net.load_state_dict(checkpoint["model_state_dict"])
         self.epoch = checkpoint["epoch"]
         net.eval()
-        print("Model and training state restored.")
+        logger.info("Model and training state restored.")
         self.test_path = test_path
 
         return
@@ -111,7 +111,7 @@ class ModelTester:
                 if (t[-1] - last_display) > 1.0:
                     last_display = t[-1]
                     message = "Test vote {:.0f} : {:.1f}% (timings : {:4.2f} {:4.2f})"
-                    print(
+                    logger.info(
                         message.format(
                             np.min(self.test_counts),
                             100 * len(obj_inds) / config.validation_size,
@@ -134,8 +134,6 @@ class ModelTester:
             )
 
             # Save/Display temporary results
-            # ******************************
-
             test_labels = np.array(test_loader.dataset.label_values)
 
             # Compute classification results
@@ -146,7 +144,7 @@ class ModelTester:
             )
 
             ACC = 100 * np.sum(np.diag(C1)) / (np.sum(C1) + 1e-6)
-            print(f"Test Accuracy = {ACC:.1f}%")
+            logger.info(f"Test Accuracy = {ACC:.1f}%")
 
         return
 
@@ -216,7 +214,7 @@ class ModelTester:
 
         # Start test loop
         while True:
-            print("Initialize workers")
+            logger.info("Initialize workers")
             for i, batch in enumerate(test_loader):
 
                 # New time
@@ -224,7 +222,7 @@ class ModelTester:
                 t += [time.time()]
 
                 if i == 0:
-                    print(f"Done in {t[1] - t[0]:.1f}s")
+                    logger.info(f"Done in {t[1] - t[0]:.1f}s")
 
                 if "cuda" in self.device.type:
                     batch.to(self.device)
@@ -279,7 +277,7 @@ class ModelTester:
                 if (t[-1] - last_display) > 1.0:
                     last_display = t[-1]
                     message = "e{:03d}-i{:04d} => {:.1f}% (timings : {:4.2f} {:4.2f} {:4.2f})"
-                    print(
+                    logger.info(
                         message.format(
                             test_epoch,
                             i,
@@ -292,7 +290,7 @@ class ModelTester:
 
             # Update minimum od potentials
             new_min = torch.min(test_loader.dataset.min_potentials)
-            print(
+            logger.info(
                 "Test epoch {:d}, end. Min potential = {:.2f} (last: {:.1f})".format(
                     test_epoch, new_min, last_min
                 )
@@ -300,14 +298,14 @@ class ModelTester:
 
             # Save predicted cloud
             if last_min + 1 < new_min:
-                print("Save predicted cloud...")
+                logger.info("Save predicted cloud...")
 
                 # Update last_min
                 last_min += 1
 
                 # Show vote results (On subcloud so it is not the good values here)
                 if test_loader.dataset.set == "validation":
-                    print("\nConfusion on sub clouds")
+                    logger.info("\nConfusion on sub clouds")
                     Confs = []
                     for file_idx, _ in enumerate(test_loader.dataset.files):
 
@@ -348,13 +346,13 @@ class ModelTester:
                     s = f"{100 * mIoU:5.2f} | "
                     for IoU in IoUs:
                         s += f"{100 * IoU:5.2f} "
-                    print(s + "\n")
+                    logger.info(s + "\n")
 
                 # Save real IoU once in a while
                 if int(np.ceil(new_min)) % 10 == 0:
 
                     # Project predictions
-                    print(f"\nReproject Vote #{int(np.floor(new_min)):d}")
+                    logger.info(f"\nReproject Vote #{int(np.floor(new_min)):d}")
                     t1 = time.time()
                     proj_probs = []
                     for file_idx, _ in enumerate(test_loader.dataset.files):
@@ -373,11 +371,11 @@ class ModelTester:
                                 )
 
                     t2 = time.time()
-                    print(f"Done in {t2 - t1:.1f} s\n")
+                    logger.info(f"Done in {t2 - t1:.1f} s\n")
 
                     # Show vote results
                     if test_loader.dataset.set == "validation":
-                        print("Confusion on full clouds")
+                        logger.info("Confusion on full clouds")
                         t1 = time.time()
                         Confs = []
                         for file_idx, _ in enumerate(test_loader.dataset.files):
@@ -394,7 +392,7 @@ class ModelTester:
                             ]
 
                         t2 = time.time()
-                        print(f"Done in {t2 - t1:.1f} s\n")
+                        logger.info(f"Done in {t2 - t1:.1f} s\n")
 
                         # Regroup confusions
                         C = np.sum(np.stack(Confs), axis=0)
@@ -412,12 +410,12 @@ class ModelTester:
                         s = f"{100 * mIoU:5.2f} | "
                         for IoU in IoUs:
                             s += f"{100 * IoU:5.2f} "
-                        print("-" * len(s))
-                        print(s)
-                        print("-" * len(s) + "\n")
+                        logger.info("-" * len(s))
+                        logger.info(s)
+                        logger.info("-" * len(s) + "\n")
 
                     # Save predictions
-                    print("Saving clouds")
+                    logger.info("Saving clouds")
                     t1 = time.time()
                     for i, file_path in enumerate(test_loader.dataset.files):
 
@@ -469,14 +467,14 @@ class ModelTester:
                             np.savetxt(ascii_name, preds, fmt="%d")
 
                     t2 = time.time()
-                    print(f"Done in {t2 - t1:.1f} s\n")
+                    logger.info(f"Done in {t2 - t1:.1f} s\n")
 
             test_epoch += 1
 
             # Break when reaching number of desired votes
             if last_min > num_votes:
                 break
-            print("---")
+            logger.info("---")
 
         return
 
@@ -538,7 +536,7 @@ class ModelTester:
 
         # Start test loop
         while True:
-            print("Initialize workers")
+            logger.info("Initialize workers")
             for i, batch in enumerate(test_loader):
 
                 # New time
@@ -546,7 +544,7 @@ class ModelTester:
                 t += [time.time()]
 
                 if i == 0:
-                    print(f"Done in {t[1] - t[0]:.1f}s")
+                    logger.info(f"Done in {t[1] - t[0]:.1f}s")
 
                 if "cuda" in self.device.type:
                     batch.to(self.device)
@@ -745,7 +743,7 @@ class ModelTester:
                         .item()
                     )
                     current_num = pot_num + (i + 1 - config.validation_size) * config.val_batch_num
-                    print(
+                    logger.info(
                         message.format(
                             test_epoch,
                             i,
@@ -760,7 +758,7 @@ class ModelTester:
 
             # Update minimum od potentials
             new_min = torch.min(test_loader.dataset.potentials)
-            print(f"Test epoch {test_epoch:d}, end. Min potential = {new_min:.1f}")
+            logger.info(f"Test epoch {test_epoch:d}, end. Min potential = {new_min:.1f}")
 
             if last_min + 1 < new_min:
 
@@ -783,7 +781,7 @@ class ModelTester:
                         ).astype(np.int32)
 
                     # Show vote results
-                    print("\nCompute confusion")
+                    logger.info("Compute confusion")
 
                     val_preds = []
                     val_labels = []
@@ -796,8 +794,8 @@ class ModelTester:
                     t2 = time.time()
                     C_tot = fast_confusion(val_labels, val_preds, test_loader.dataset.label_values)
                     t3 = time.time()
-                    print(f" Stacking time : {t2 - t1:.1f}s")
-                    print(f"Confusion time : {t3 - t2:.1f}s")
+                    logger.info(f"Stacking time : {t2 - t1:.1f}s")
+                    logger.info(f"Confusion time : {t3 - t2:.1f}s")
 
                     s1 = "\n"
                     for cc in C_tot:
@@ -805,7 +803,7 @@ class ModelTester:
                             s1 += f"{c:7.0f} "
                         s1 += "\n"
                     if debug:
-                        print(s1)
+                        logger.info(s1)
 
                     # Remove ignored labels from confusions
                     for l_ind, label_value in reversed(
@@ -823,7 +821,7 @@ class ModelTester:
                     s2 = f"{100 * mIoU:5.2f} | "
                     for IoU in val_IoUs:
                         s2 += f"{100 * IoU:5.2f} "
-                    print(s2 + "\n")
+                    logger.info(s2 + "\n")
 
                     # Save a report
                     report_file = os.path.join(

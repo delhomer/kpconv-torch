@@ -52,7 +52,7 @@ class ModelVisualizer:
         net.load_state_dict(new_dict)
         self.epoch = checkpoint["epoch"]
         net.eval()
-        print(f"\nModel state restored from {chkp_path}.")
+        logger.info(f"\nModel state restored from {chkp_path}.")
 
         return
 
@@ -68,7 +68,9 @@ class ModelVisualizer:
         # First choose the visualized deformations
         ##########################################
 
-        print("\nList of the deformable convolution available (chosen one highlighted in green)")
+        logger.info(
+            "\nList of the deformable convolution available (chosen one highlighted in green)"
+        )
         fmt_str = "  {:}{:2d} > KPConv(r={:.3f}, Din={:d}, Dout={:d}){:}"
         deform_convs = []
         for m in net.modules():
@@ -77,7 +79,7 @@ class ModelVisualizer:
                     color = BColors.OKGREEN.value
                 else:
                     color = BColors.FAIL.value
-                print(
+                logger.info(
                     fmt_str.format(
                         color,
                         len(deform_convs),
@@ -93,7 +95,7 @@ class ModelVisualizer:
         # Initialization
         ################
 
-        print("\n****************************************************\n")
+        logger.info("****************************************************\n")
 
         # Loop variables
         time.time()
@@ -404,7 +406,7 @@ class ModelVisualizer:
 
                     elif vtk_obj.GetKeyCode() in ["0"]:
 
-                        print("Saving")
+                        logger.info("Saving")
 
                         # Find a new name
                         file_i = 0
@@ -433,7 +435,7 @@ class ModelVisualizer:
                             [KP_normal],
                             ["x", "y", "z"],
                         )
-                        print("OK")
+                        logger.info("OK")
 
                     return
 

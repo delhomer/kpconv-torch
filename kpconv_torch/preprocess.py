@@ -24,15 +24,15 @@ from kpconv_torch.datasets.Toronto3D import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 def main(args):
     preprocess(args.datapath, args.dataset)
 
 
 def preprocess(datapath: Path, dataset: str) -> None:
-
-    # ############################
-    # # Initialize the environment
-    # ############################
+    logger.info("Initialize the environment")
     # Option: set which gpu is going to be used and set the GPU visible device
     # By modifying the CUDA_VISIBLE_DEVICES environment variable
 
@@ -58,9 +58,7 @@ def preprocess(datapath: Path, dataset: str) -> None:
     ##############
     # Prepare Data
     ##############
-    print()
-    print("Data Preparation")
-    print("****************")
+    logger.info("Data preparation")
 
     # Initialize datasets
     if config.dataset == "ModelNet40":
