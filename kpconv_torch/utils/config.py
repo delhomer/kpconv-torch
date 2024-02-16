@@ -223,8 +223,8 @@ class Config:
             if "global" in block or "upsample" in block:
                 break
 
-    def set_chosen_log(self, chosen_log):
-        self.chosen_log = chosen_log
+    def set_trained_model(self, trained_model):
+        self.trained_model = trained_model
 
     def set_output_dir(self, output_dir):
         self.output_dir = output_dir

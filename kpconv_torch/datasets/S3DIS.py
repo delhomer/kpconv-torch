@@ -1,3 +1,4 @@
+import logging
 from multiprocessing import Lock
 import os
 from pathlib import Path
@@ -14,9 +15,12 @@ from torch.utils.data import get_worker_info, Sampler
 from kpconv_torch.datasets.common import grid_subsampling, PointCloudDataset
 from kpconv_torch.utils.config import BColors, Config
 from kpconv_torch.utils.mayavi_visu import show_input_batch
-from kpconv_torch.io.las import read_las_laz
 from kpconv_torch.io.ply import read_ply, write_ply
 from kpconv_torch.io.xyz import read_xyz
+from kpconv_torch.io.las import read_las_laz
+
+
+logger = logging.getLogger(__name__)
 
 
 class S3DISDataset(PointCloudDataset):
@@ -26,7 +30,7 @@ class S3DISDataset(PointCloudDataset):
         self,
         config,
         datapath,
-        chosen_log=None,
+        trained_model=None,
         infered_file=None,
         use_potentials=True,
         load_data=True,
@@ -39,7 +43,7 @@ class S3DISDataset(PointCloudDataset):
             config=config,
             datapath=datapath,
             dataset="S3DIS",
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             infered_file=infered_file,
             split=split,
         )
@@ -1661,7 +1665,7 @@ class S3DISConfig(Config):
 
     # Do we need to save convergence
     saving = True
-    chosen_log = None
+    trained_model = None
     output_dir = None
 
 

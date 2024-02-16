@@ -65,7 +65,7 @@ The `kpconv_trained_models` folder will be the parent folder of the log folder c
 To restart the training of an already trained model, at the next iteration, do the following:
 
 ```bash
-kpconv train -s S3DIS -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
+kpconv train -s S3DIS -d ~/data/S3DIS -t ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
 ```
 
 Similarly to ModelNet40 training, the parameters can be modified in a configuration subclass called `S3DISConfig`, and the first run of this script might take some time to precompute dataset structures.
@@ -77,7 +77,7 @@ When you start a new training, it is saved in a `results` folder. A dated log fo
 In `plot_convergence.py`, you will find detailed comments explaining how to choose which training log you want to plot. Follow them and then run the script:
 
 ```bash
-kpconv plotconv -s S3DIS -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
+kpconv plotconv -s S3DIS -d ~/data/S3DIS -t ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
 ```
 
 ### Test the trained model
@@ -86,12 +86,12 @@ The test script includes the preprocessing of the entry file. It is the same for
 
 For any file `~/data/cloud.xyz`:
 ```bash
-kpconv test -s S3DIS -d ~/data/S3DIS -f ~/data/cloud.xyz -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
+kpconv test -s S3DIS -d ~/data/S3DIS -f ~/data/cloud.xyz -t ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
 ```
 
 For the validation file `Area_5.ply` of the S3DIS dataset used to train the model:
 ```bash
-kpconv test -s S3DIS -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
+kpconv test -s S3DIS -d ~/data/S3DIS -t ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
 ```
 
 You will see the performance (on the subsampled input clouds) increase as the test goes on.
@@ -137,11 +137,11 @@ We provide pretrained weights for S3DIS dataset. The raw weights come with a par
 
 1. Unzip and place the folder in your 'results' folder.
 
-2. In the test script `test_any_model.py`, set the variable `chosen_log` to the path were you placed the folder.
+2. In the test script `test_any_model.py`, set the variable `trained_model` to the path were you placed the folder.
 
 3. Run the test script
 
-        kpconv test -d <path-of-your-dataset> -l <path-of-your-model-log>
+        kpconv test -d <path-of-your-dataset> -t <path-of-your-model-log>
 
 4. You will see the performance (on the subsampled input clouds) increase as the test goes on.
 

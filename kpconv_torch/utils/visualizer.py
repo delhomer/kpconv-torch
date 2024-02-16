@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 
@@ -9,6 +10,9 @@ import torch
 from kpconv_torch.models.blocks import KPConv
 from kpconv_torch.utils.config import BColors
 from kpconv_torch.io.ply import write_ply
+
+
+logger = logging.getLogger(__name__)
 
 
 class ModelVisualizer:

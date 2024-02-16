@@ -1,4 +1,6 @@
 import argparse
+from datetime import datetime
+import logging
 from pathlib import Path
 
 from kpconv_torch import __version__ as kpconv_version
@@ -6,6 +8,13 @@ from kpconv_torch import preprocess, test, train
 
 
 SUPPORTED_DATASETS = {"ModelNet40", "NPM3D", "S3DIS", "SemanticKitti", "Toronto3D"}
+
+
+def logging_level(level):
+    if level not in logging._nameToLevel:  # Compare with valid logging level names
+        msg = f'Le niveau de log "{level}" est invalide.'
+        raise argparse.ArgumentTypeError(msg)
+    return level
 
 
 def valid_dataset(dataset):
@@ -60,10 +69,9 @@ def kpconv_parser(subparser, reference_func, command, command_description):
                 "(if None, use the validation split)"
             ),
         )
-
         parser.add_argument(
-            "-l",
-            "--chosen-log",
+            "-t",
+            "--trained-model",
             required=True,
             type=valid_dir,
             help=(
@@ -77,8 +85,8 @@ def kpconv_parser(subparser, reference_func, command, command_description):
     if command == "train":
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument(
-            "-l",
-            "--chosen-log",
+            "-t",
+            "--trained-model",
             type=valid_dir,
             help=(
                 "If mentioned with the train command, "
@@ -86,23 +94,28 @@ def kpconv_parser(subparser, reference_func, command, command_description):
                 "contained in the mentioned folder."
             ),
         )
-
         group.add_argument(
             "-o",
             "--output-dir",
             type=valid_dir,
             help=(
                 "If mentioned, starts training from the begining. "
-                "Otherwise, the -l option must be mentioned."
+                "Otherwise, the -t option must be mentioned."
             ),
         )
-
     parser.add_argument(
         "-s",
         "--dataset",
         default="S3DIS",
         type=valid_dataset,
         help="Name of the dataset",
+    )
+    parser.add_argument(
+        "-l",
+        "--log-level",
+        default=logging.INFO,
+        type=logging_level,
+        help="Logger level, valid values are DEBUG, INFO (default), WARNING, ERROR or CRITICAL.",
     )
     parser.set_defaults(func=reference_func)
 

@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 import time
@@ -9,13 +10,16 @@ from kpconv_torch.utils.metrics import fast_confusion, IoU_from_confusions
 from kpconv_torch.io.ply import write_ply
 
 
-def get_test_save_path(infered_file, chosen_log):
-    if chosen_log is None:
+logger = logging.getLogger(__name__)
+
+
+def get_test_save_path(infered_file, trained_model):
+    if trained_model is None:
         test_path = None
     elif infered_file is not None:
-        test_path = Path(infered_file).parent / "test" / Path(chosen_log).name
+        test_path = Path(infered_file).parent / "test" / Path(trained_model).name
     else:
-        test_path = Path(chosen_log) / "test"
+        test_path = Path(trained_model) / "test"
     if test_path is not None and not os.path.exists(test_path):
         os.makedirs(test_path)
     return test_path

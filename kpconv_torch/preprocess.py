@@ -1,4 +1,6 @@
+import logging
 from pathlib import Path
+
 
 from kpconv_torch.datasets.ModelNet40 import (
     ModelNet40Config,

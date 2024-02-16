@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import os
 from pathlib import Path
 
@@ -14,6 +15,9 @@ from kpconv_torch.utils.metrics import (
     smooth_metrics,
 )
 from kpconv_torch.io.ply import read_ply
+
+
+logger = logging.getLogger(__name__)
 
 
 def listdir_str(path):

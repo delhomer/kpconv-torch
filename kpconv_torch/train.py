@@ -1,11 +1,14 @@
-from pathlib import Path
+import logging
 import os
+from pathlib import Path
 import signal
 import sys
 import time
 
+
 import numpy as np
 from torch.utils.data import DataLoader
+
 
 from kpconv_torch.datasets.ModelNet40 import (
     ModelNet40Collate,
@@ -41,14 +44,15 @@ from kpconv_torch.models.architectures import KPCNN, KPFCNN
 from kpconv_torch.utils.trainer import get_train_save_path, ModelTrainer
 
 
+logger = logging.getLogger(__name__)
+
+
 def main(args):
-    train(args.datapath, args.chosen_log, args.output_dir, args.dataset)
+    train(args.datapath, args.trained_model, args.output_dir, args.dataset)
 
 
-def train(datapath: Path, chosen_log: Path, output_dir: Path, dataset: str) -> None:
-    ############################
-    # Initialize the environment
-    ############################
+def train(datapath: Path, trained_model: Path, output_dir: Path, dataset: str) -> None:
+    logger.info("Initialize the environment")
     start = time.time()
     # Set which gpu is going to be used
     GPU_ID = "0"
@@ -76,35 +80,35 @@ def train(datapath: Path, chosen_log: Path, output_dir: Path, dataset: str) -> N
         config = Toronto3DConfig()
 
     config.set_output_dir(output_dir)
-    config.set_chosen_log(chosen_log)
+    config.set_trained_model(trained_model)
 
-    train_save_path = get_train_save_path(output_dir, chosen_log)
+    train_save_path = get_train_save_path(output_dir, trained_model)
 
-    if chosen_log:
+    if trained_model:
         config.load(train_save_path)
         if config.dataset != dataset:
             raise ValueError(
                 f"Config dataset ({config.dataset}) "
                 f"does not match provided dataset ({dataset})."
             )
-        config.chosen_log = None
+        config.trained_model = None
 
     # Get path from argument if given
     if len(sys.argv) > 1:
-        config.chosen_log = sys.argv[1]
+        config.trained_model = sys.argv[1]
 
     # Initialize datasets and samplers
     if config.dataset == "ModelNet40":
         training_dataset = ModelNet40Dataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             train=True,
         )
         test_dataset = ModelNet40Dataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             train=False,
         )
         training_sampler = ModelNet40Sampler(training_dataset, balance_labels=True)
@@ -114,14 +118,14 @@ def train(datapath: Path, chosen_log: Path, output_dir: Path, dataset: str) -> N
         training_dataset = NPM3DDataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             split="training",
             use_potentials=True,
         )
         test_dataset = NPM3DDataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             split="validation",
             use_potentials=True,
         )
@@ -132,14 +136,14 @@ def train(datapath: Path, chosen_log: Path, output_dir: Path, dataset: str) -> N
         training_dataset = S3DISDataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             split="training",
             use_potentials=True,
         )
         test_dataset = S3DISDataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             split="validation",
             use_potentials=True,
         )
@@ -150,14 +154,14 @@ def train(datapath: Path, chosen_log: Path, output_dir: Path, dataset: str) -> N
         training_dataset = SemanticKittiDataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             split="training",
             balance_classes=True,
         )
         test_dataset = SemanticKittiDataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             split="validation",
             balance_classes=False,
         )
@@ -168,14 +172,14 @@ def train(datapath: Path, chosen_log: Path, output_dir: Path, dataset: str) -> N
         training_dataset = Toronto3DDataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             split="training",
             use_potentials=True,
         )
         test_dataset = Toronto3DDataset(
             config=config,
             datapath=datapath,
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             split="validation",
             use_potentials=True,
         )
@@ -224,25 +228,25 @@ def train(datapath: Path, chosen_log: Path, output_dir: Path, dataset: str) -> N
 
     debug = False
     if debug:
-        print("\n*************************************\n")
-        print(net)
-        print("\n*************************************\n")
+        logger.info("*************************************")
+        logger.info(net)
+        logger.info("*************************************")
         for param in net.parameters():
             if param.requires_grad:
-                print(param.shape)
-        print("\n*************************************\n")
-        print(
+                logger.info(param.shape)
+        logger.info("*************************************")
+        logger.info(
             "Model size %i"
             % sum(param.numel() for param in net.parameters() if param.requires_grad)
         )
-        print("\n*************************************\n")
+        logger.info("*************************************")
 
     # Choose index of checkpoint to start from. If None, uses the latest chkp.
     chkp_idx = None
-    if chosen_log is not None:
+    if trained_model is not None:
 
         # Find all snapshot in the chosen training folder
-        chkp_path = os.path.join(chosen_log, "checkpoints")
+        chkp_path = os.path.join(trained_model, "checkpoints")
         chkps = [f for f in os.listdir(chkp_path) if f[:4] == "chkp"]
 
         # Find which snapshot to restore

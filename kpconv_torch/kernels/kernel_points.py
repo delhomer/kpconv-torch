@@ -1,3 +1,4 @@
+import logging
 import os
 
 import matplotlib.pyplot as plt
@@ -5,6 +6,9 @@ import numpy as np
 
 from kpconv_torch.utils.config import BColors
 from kpconv_torch.io.ply import read_ply, write_ply
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_3D_rotations(axis, angle):

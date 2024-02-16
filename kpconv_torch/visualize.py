@@ -1,9 +1,11 @@
-from pathlib import Path
+import logging
 import os
+from pathlib import Path
 import time
 
 import numpy as np
 from torch.utils.data import DataLoader
+
 
 from kpconv_torch.datasets.ModelNet40 import (
     ModelNet40Collate,
@@ -20,17 +22,17 @@ from kpconv_torch.utils.config import Config
 from kpconv_torch.utils.visualizer import ModelVisualizer
 
 
-def model_choice(chosen_log):
+logger = logging.getLogger(__name__)
 
-    ###########################
-    # Call the test initializer
-    ###########################
+
+def model_choice(trained_model):
+    logger.info("Call the test initializer")
 
     # Automatically retrieve the last trained model
-    if chosen_log in ["last_ModelNet40", "last_ShapeNetPart", "last_S3DIS"]:
+    if trained_model in ["last_ModelNet40", "last_ShapeNetPart", "last_S3DIS"]:
 
         # Dataset name
-        test_dataset = "_".join(chosen_log.split("_")[1:])
+        test_dataset = "_".join(trained_model.split("_")[1:])
 
         # List all training logs
         logs = np.sort(
@@ -42,24 +44,24 @@ def model_choice(chosen_log):
             log_config = Config()
             log_config.load(log)
             if log_config.dataset.startswith(test_dataset):
-                chosen_log = log
+                trained_model = log
                 break
 
-        if chosen_log in ["last_ModelNet40", "last_ShapeNetPart", "last_S3DIS"]:
+        if trained_model in ["last_ModelNet40", "last_ShapeNetPart", "last_S3DIS"]:
             raise ValueError('No log of the dataset "' + test_dataset + '" found')
 
     # Check if log exists
-    if not os.path.exists(chosen_log):
-        raise ValueError("The given log does not exists: " + chosen_log)
+    if not os.path.exists(trained_model):
+        raise ValueError("The given log does not exists: " + trained_model)
 
-    return chosen_log
+    return trained_model
 
 
 def main(args):
-    visualize(args.datapath, args.chosen_log)
+    visualize(args.datapath, args.trained_model)
 
 
-def visualize(datapath: Path, chosen_log: Path) -> None:
+def visualize(datapath: Path, trained_model: Path) -> None:
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = None
@@ -69,7 +71,7 @@ def visualize(datapath: Path, chosen_log: Path) -> None:
     deform_idx = 0
 
     # Deal with 'last_XXX' choices
-    chosen_log = model_choice(chosen_log)
+    trained_model = model_choice(trained_model)
 
     ############################
     # Initialize the environment
@@ -86,7 +88,7 @@ def visualize(datapath: Path, chosen_log: Path) -> None:
     ###############
 
     # Find all checkpoints in the chosen training folder
-    chkp_path = os.path.join(chosen_log, "checkpoints")
+    chkp_path = os.path.join(trained_model, "checkpoints")
     chkps = [f for f in os.listdir(chkp_path) if f[:4] == "chkp"]
 
     # Find which snapshot to restore
@@ -94,11 +96,11 @@ def visualize(datapath: Path, chosen_log: Path) -> None:
         chosen_chkp = "current_chkp.tar"
     else:
         chosen_chkp = np.sort(chkps)[chkp_idx]
-    chosen_chkp = os.path.join(chosen_log, "checkpoints", chosen_chkp)
+    chosen_chkp = os.path.join(trained_model, "checkpoints", chosen_chkp)
 
     # Initialize configuration class
     config = Config()
-    config.load(chosen_log)
+    config.load(trained_model)
 
     ##################################
     # Change model parameters for test

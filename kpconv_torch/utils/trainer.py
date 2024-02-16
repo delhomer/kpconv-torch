@@ -1,4 +1,6 @@
+import logging
 import os
+from pathlib import Path
 import time
 
 import numpy as np
@@ -9,11 +11,14 @@ from kpconv_torch.utils.metrics import fast_confusion, IoU_from_confusions
 from kpconv_torch.io.ply import write_ply
 
 
-def get_train_save_path(output_dir, chosen_log):
-    if chosen_log is None and output_dir is None:
+logger = logging.getLogger(__name__)
+
+
+def get_train_save_path(output_dir, trained_model):
+    if trained_model is None and output_dir is None:
         train_path = None
-    elif chosen_log is not None:
-        train_path = chosen_log
+    elif trained_model is not None:
+        train_path = trained_model
     elif output_dir is not None:
         train_path = os.path.join(output_dir, time.strftime("Log_%Y-%m-%d_%H-%M-%S", time.gmtime()))
     if train_path is not None and not os.path.exists(train_path):
@@ -232,7 +237,7 @@ class ModelTrainer:
                     "epoch": self.epoch,
                     "model_state_dict": net.state_dict(),
                     "optimizer_state_dict": self.optimizer.state_dict(),
-                    "chosen_log": config.chosen_log,
+                    "trained_model": config.trained_model,
                 }
 
                 # Save current state of the network (for restoring purposes)

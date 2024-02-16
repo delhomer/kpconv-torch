@@ -1,3 +1,4 @@
+import logging
 import sys
 
 import numpy as np
@@ -24,6 +25,9 @@ ply_dtypes = {
     b"float64": "f8",
     b"double": "f8",
 }
+
+
+logger = logging.getLogger(__name__)
 
 
 def describe_element(name, df):

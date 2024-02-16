@@ -1,3 +1,4 @@
+import logging
 from multiprocessing import Lock
 import os
 import pickle
@@ -15,6 +16,9 @@ from kpconv_torch.utils.mayavi_visu import show_input_batch
 from kpconv_torch.io.ply import read_ply, write_ply
 
 
+logger = logging.getLogger(__name__)
+
+
 class Toronto3DDataset(PointCloudDataset):
     """Class to handle Toronto3D dataset."""
 
@@ -22,7 +26,7 @@ class Toronto3DDataset(PointCloudDataset):
         self,
         config,
         datapath,
-        chosen_log=None,
+        trained_model=None,
         infered_file=None,
         use_potentials=True,
         load_data=True,
@@ -35,7 +39,7 @@ class Toronto3DDataset(PointCloudDataset):
             config=config,
             datapath=datapath,
             dataset="Toronto3D",
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             infered_file=infered_file,
             split=split,
         )
@@ -1670,7 +1674,7 @@ class Toronto3DConfig(Config):
 
     # Do we need to save convergence
     saving = True
-    chosen_log = None
+    trained_model = None
 
 
 # ----------------------------------------------------------------------------------------------------------------------

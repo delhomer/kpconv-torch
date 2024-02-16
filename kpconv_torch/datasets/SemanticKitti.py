@@ -1,3 +1,4 @@
+import logging
 from multiprocessing import Lock
 import os
 import pickle
@@ -13,6 +14,9 @@ from kpconv_torch.datasets.common import grid_subsampling, PointCloudDataset
 from kpconv_torch.utils.config import BColors, Config
 
 
+logger = logging.getLogger(__name__)
+
+
 class SemanticKittiDataset(PointCloudDataset):
     """Class to handle SemanticKitti dataset."""
 
@@ -20,7 +24,7 @@ class SemanticKittiDataset(PointCloudDataset):
         self,
         config,
         datapath,
-        chosen_log=None,
+        trained_model=None,
         infered_file=None,
         balance_classes=True,
         split="training",
@@ -29,7 +33,7 @@ class SemanticKittiDataset(PointCloudDataset):
             config=config,
             datapath=datapath,
             dataset="SemanticKitti",
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             infered_file=infered_file,
             split=split,
         )
@@ -1562,7 +1566,7 @@ class SemanticKittiConfig(Config):
 
     # Do we need to save convergence
     saving = True
-    chosen_log = None
+    trained_model = None
 
 
 # ----------------------------------------------------------------------------------------------------------------------

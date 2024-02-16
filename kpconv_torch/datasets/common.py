@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 from torch.utils.data import Dataset
 
@@ -195,7 +196,7 @@ class PointCloudDataset(Dataset):
         config,
         datapath,
         dataset,
-        chosen_log=None,
+        trained_model=None,
         infered_file=None,
         split="training",
     ):
@@ -226,7 +227,7 @@ class PointCloudDataset(Dataset):
         if split not in ["training", "validation", "test", "ERF", "all"]:
             raise ValueError("Unknown set for the dataset: ", split)
 
-        self.test_save_path = get_test_save_path(infered_file, chosen_log)
+        self.test_save_path = get_test_save_path(infered_file, trained_model)
 
         return
 

@@ -1,3 +1,4 @@
+import logging
 import os
 import pickle
 import time
@@ -11,6 +12,9 @@ from kpconv_torch.utils.config import BColors, Config
 from kpconv_torch.utils.mayavi_visu import show_input_batch
 
 
+logger = logging.getLogger(__name__)
+
+
 class ModelNet40Dataset(PointCloudDataset):
     """Class to handle Modelnet 40 dataset."""
 
@@ -18,7 +22,7 @@ class ModelNet40Dataset(PointCloudDataset):
         self,
         config,
         datapath,
-        chosen_log=None,
+        trained_model=None,
         infered_file=None,
         orient_correction=True,
         split="training",
@@ -30,7 +34,7 @@ class ModelNet40Dataset(PointCloudDataset):
             config=config,
             datapath=datapath,
             dataset="ModelNet40",
-            chosen_log=chosen_log,
+            trained_model=trained_model,
             infered_file=infered_file,
             split=split,
         )
@@ -202,7 +206,6 @@ class ModelNet40Dataset(PointCloudDataset):
         return input_list
 
     def load_subsampled_clouds(self, orient_correction):
-
         # Restart timer
         t0 = time.time()
 
@@ -930,7 +933,7 @@ class ModelNet40Config(Config):
 
     # Do we need to save convergence
     saving = True
-    chosen_log = None
+    trained_model = None
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -1005,49 +1008,51 @@ def debug_show_clouds(dataset, sampler, loader):
         for batch in loader:
 
             # Print characteristics of input tensors
-            print("\nPoints tensors")
+            logger.info("Points tensors")
             for i in range(L):
-                print(batch.points[i].dtype, batch.points[i].shape)
-            print("\nNeigbors tensors")
+                logger.info(batch.points[i].dtype, batch.points[i].shape)
+            logger.info("Neigbors tensors")
             for i in range(L):
-                print(batch.neighbors[i].dtype, batch.neighbors[i].shape)
-            print("\nPools tensors")
+                logger.info(batch.neighbors[i].dtype, batch.neighbors[i].shape)
+            logger.info("Pools tensors")
             for i in range(L):
-                print(batch.pools[i].dtype, batch.pools[i].shape)
-            print("\nStack lengths")
+                logger.info(batch.pools[i].dtype, batch.pools[i].shape)
+            logger.info("Stack lengths")
             for i in range(L):
-                print(batch.lengths[i].dtype, batch.lengths[i].shape)
-            print("\nFeatures")
-            print(batch.features.dtype, batch.features.shape)
-            print("\nLabels")
-            print(batch.labels.dtype, batch.labels.shape)
-            print("\nAugment Scales")
-            print(batch.scales.dtype, batch.scales.shape)
-            print("\nAugment Rotations")
-            print(batch.rots.dtype, batch.rots.shape)
-            print("\nModel indices")
-            print(batch.model_inds.dtype, batch.model_inds.shape)
+                logger.info(batch.lengths[i].dtype, batch.lengths[i].shape)
+            logger.info("Features")
+            logger.info(batch.features.dtype, batch.features.shape)
+            logger.info("Labels")
+            logger.info(batch.labels.dtype, batch.labels.shape)
+            logger.info("Augment Scales")
+            logger.info(batch.scales.dtype, batch.scales.shape)
+            logger.info("Augment Rotations")
+            logger.info(batch.rots.dtype, batch.rots.shape)
+            logger.info("Model indices")
+            logger.info(batch.model_inds.dtype, batch.model_inds.shape)
 
-            print("\nAre input tensors pinned")
-            print(batch.neighbors[0].is_pinned())
-            print(batch.neighbors[-1].is_pinned())
-            print(batch.points[0].is_pinned())
-            print(batch.points[-1].is_pinned())
-            print(batch.labels.is_pinned())
-            print(batch.scales.is_pinned())
-            print(batch.rots.is_pinned())
-            print(batch.model_inds.is_pinned())
+            logger.info("Are input tensors pinned")
+            logger.info(batch.neighbors[0].is_pinned())
+            logger.info(batch.neighbors[-1].is_pinned())
+            logger.info(batch.points[0].is_pinned())
+            logger.info(batch.points[-1].is_pinned())
+            logger.info(batch.labels.is_pinned())
+            logger.info(batch.scales.is_pinned())
+            logger.info(batch.rots.is_pinned())
+            logger.info(batch.model_inds.is_pinned())
 
             show_input_batch(batch)
 
-        print("*******************************************")
+        logger.info("*******************************************")
 
     _, counts = np.unique(dataset.input_labels, return_counts=True)
-    print(counts)
+    logger.info(counts)
 
 
 def debug_batch_and_neighbors_calib(dataset, sampler, loader):
-    """Timing of generator function"""
+    """
+    Timing of generator function
+    """
 
     t = [time.time()]
     last_display = time.time()
