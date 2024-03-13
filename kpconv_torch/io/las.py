@@ -27,9 +27,13 @@ def read_las_laz(filepath, xyz_only=False):
     if xyz_only:
         return points, None, None
     dims = list(data.point_format.dimension_names)
+    colorfactor = 256
+    if data.red.max() <= 255:
+        print("The color data seems to be wrongly encoded and defined on 1 byte.")
+        colorfactor = 1
     if "red" in dims and "blue" in dims and "green" in dims:
         colors = (
-            np.vstack([data.red / 256, data.green / 256, data.blue / 256])
+            np.vstack([data.red / colorfactor, data.green / colorfactor, data.blue / colorfactor])
             .transpose()
             .astype(np.uint8)
         )
