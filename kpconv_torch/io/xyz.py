@@ -24,9 +24,9 @@ def read_xyz(filepath, xyz_only=False):
     else:
         colors = colors.shape[0] > 0
     if data.shape[1] == 4:
-        labels = np.squeeze(data[:, 3]).astype(np.int32)
+        labels = np.squeeze(data[:, 3]).astype(np.int8)
     if data.shape[1] == 7:
-        labels = np.squeeze(data[:, 6]).astype(np.int32)
+        labels = np.squeeze(data[:, 6]).astype(np.int8)
 
     return points, colors, labels
 

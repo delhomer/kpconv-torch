@@ -40,9 +40,9 @@ def read_las_laz(filepath, xyz_only=False):
     else:
         colors = np.zeros((points.shape[0], 3))
     if "classification" in dims:
-        labels = np.array(data.classification).astype(np.int32)
+        labels = np.array(data.classification).astype(np.int8)
     else:
-        labels = np.zeros(points.shape[0])
+        labels = np.zeros(points.shape[0], dtype=np.int8)
 
     return points, colors, labels
 

@@ -191,7 +191,7 @@ def read_ply(filepath, triangular_mesh=False, xyz_only=False):
         if "classification" in fields:
             labels = data["classification"]
         else:
-            labels = np.zeros((points.shape[0]), dtype=np.int32)
+            labels = np.zeros((points.shape[0]), dtype=np.int8)
 
     return points, colors, labels
 

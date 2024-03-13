@@ -316,7 +316,7 @@ class ModelTester:
 
                         # Predicted labels
                         preds = test_loader.dataset.label_values[np.argmax(probs, axis=1)].astype(
-                            np.int32
+                            np.int8
                         )
 
                         # Targets
