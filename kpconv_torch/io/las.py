@@ -2,7 +2,7 @@ import laspy
 import numpy as np
 
 
-def read_las_laz(filepath):
+def read_las_laz(filepath, xyz_only=False):
     """Takes a file path pointing on a 3D point .las or .laz file and returns the points,
     the associated colors and the associated classes.
 
@@ -24,6 +24,8 @@ def read_las_laz(filepath):
     """
     data = laspy.read(filepath)
     points = np.vstack([data.x, data.y, data.z]).transpose().astype(np.float32)
+    if xyz_only:
+        return points, None, None
     dims = list(data.point_format.dimension_names)
     if "red" in dims and "blue" in dims and "green" in dims:
         colors = (

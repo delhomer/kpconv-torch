@@ -120,7 +120,7 @@ def parse_mesh_header(plyfile, ext):
     return num_points, num_faces, vertex_properties
 
 
-def read_ply(filepath, triangular_mesh=False):
+def read_ply(filepath, triangular_mesh=False, xyz_only=False):
     """Takes a file path pointing on a 3D point .ply file and returns the points,
     the associated colors and the associated classes.
 
@@ -180,6 +180,8 @@ def read_ply(filepath, triangular_mesh=False):
 
         fields = [p[0] for p in properties]
         points = np.vstack((data["x"], data["y"], data["z"])).transpose().astype(np.float32)
+        if xyz_only:
+            return points, None, None
         if "red" in fields and "green" in fields and "blue" in fields:
             colors = (
                 np.vstack((data["red"], data["green"], data["blue"])).transpose().astype(np.uint8)

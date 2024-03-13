@@ -826,18 +826,18 @@ class S3DISDataset(PointCloudDataset):
         points, _, _ = self.read_input(file_path)
         return points
 
-    def read_input(self, filepath):
+    def read_input(self, filepath, xyz_only=False):
         """Read all the input files that belong to the dataset
 
         PLY files are read by training and testing commands.
         """
         file_extension = Path(filepath).suffix
         if file_extension == ".ply":
-            points, colors, labels = read_ply(filepath)
+            points, colors, labels = read_ply(filepath, xyz_only=xyz_only)
         elif file_extension == ".xyz":
-            points, colors, labels = read_xyz(filepath)
+            points, colors, labels = read_xyz(filepath, xyz_only=xyz_only)
         elif file_extension == ".las" or file_extension == ".laz":
-            points, colors, labels = read_las_laz(filepath)
+            points, colors, labels = read_las_laz(filepath, xyz_only=xyz_only)
         else:
             raise OSError(f"Unsupported input file extension ({file_extension}).")
         return points, colors, labels

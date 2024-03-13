@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def read_xyz(filepath):
+def read_xyz(filepath, xyz_only=False):
     """Takes a file path pointing on a 3D point .xyz (text) file and returns the points,
     the associated colors and the associated classes.
 
@@ -17,6 +17,8 @@ def read_xyz(filepath):
     """
     data = np.loadtxt(filepath, delimiter=" ")
     points = data[:, :3].astype(np.float32)
+    if xyz_only:
+        return points, None, None
     if data.shape[1] >= 6:
         colors = data[:, 3:6].astype(np.uint8)
     else:
