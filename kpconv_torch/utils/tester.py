@@ -304,7 +304,7 @@ class ModelTester:
 
                 # Show vote results (On subcloud so it is not the good values here)
                 if test_loader.dataset.task == "validate":
-                    print("\nConfusion on sub clouds")
+                    print("\nConfusion on sub clouds (validation case)")
                     Confs = []
                     for file_idx, _ in enumerate(test_loader.dataset.files):
 
@@ -354,24 +354,96 @@ class ModelTester:
                     # Project predictions
                     print(f"\nReproject Vote #{int(np.floor(new_min)):d}")
                     t1 = time.time()
-                    proj_probs = []
-                    for file_idx, _ in enumerate(test_loader.dataset.files):
+                    preds_on_all_files = []
+                    for file_idx, file_path in enumerate(test_loader.dataset.files):
 
-                        # Reproject probs on the evaluations points
-                        probs = self.test_probs[file_idx][
-                            test_loader.dataset.test_proj[file_idx], :
-                        ]
-                        proj_probs += [probs]
+                        # The memory requirements for heavy point clouds is too big then we batch
+                        # the RAM-consuming structures and write results in several steps
+                        proj_gen = test_loader.dataset.generate_projected_point_batches(
+                            file_idx, file_path, step=5_000_000
+                        )
+                        for batch_idx, (point_batch, proj_batch) in enumerate(proj_gen):
+                            print(f"Start writing results for batch {batch_idx=}...")
+                            # Reproject probs on the evaluations points
+                            probs = self.test_probs[file_idx][proj_batch, :]
 
-                        # Insert false columns for ignored labels
-                        for l_ind, label_value in enumerate(test_loader.dataset.label_values):
-                            if label_value in test_loader.dataset.ignored_labels:
-                                proj_probs[file_idx] = np.insert(
-                                    proj_probs[file_idx], l_ind, 0, axis=1
-                                )
+                            # Insert false columns for ignored labels
+                            for l_ind, label_value in enumerate(test_loader.dataset.label_values):
+                                if label_value in test_loader.dataset.ignored_labels:
+                                    probs = np.insert(probs, l_ind, 0, axis=1)
+
+                            # Get the predicted labels
+                            preds = test_loader.dataset.label_values[
+                                np.argmax(probs, axis=1)
+                            ].astype(np.int8)
+                            preds_on_all_files += [preds]
+
+                            # Save plys
+                            cloud_name = file_path.name
+                            pred_filename = os.path.join(self.test_path, "predictions", cloud_name)
+                            print(f"Write ply predictions to {pred_filename}...")
+                            t1 = time.time()
+                            write_ply(
+                                pred_filename,
+                                [point_batch, preds],
+                                ["x", "y", "z", "preds"],
+                                write_header=batch_idx == 0,
+                            )
+                            t2 = time.time()
+                            print(f"Done in {t2 - t1:.1f} s\n")
+                            prob_filename = os.path.join(self.test_path, "probs", cloud_name)
+                            print(f"Write ply probabilities to {prob_filename}...")
+                            t1 = time.time()
+                            prob_names = [
+                                "_".join(test_loader.dataset.label_to_names[label].split())
+                                for label in test_loader.dataset.label_values
+                            ]
+                            write_ply(
+                                prob_filename,
+                                [point_batch, probs],
+                                ["x", "y", "z"] + prob_names,
+                                write_header=batch_idx == 0,
+                            )
+                            t2 = time.time()
+                            print(f"Done in {t2 - t1:.1f} s\n")
+
+                            # Save ascii preds
+                            if test_loader.dataset.set == "test":
+                                if test_loader.dataset.name.startswith("Semantic3D"):
+                                    ascii_filename = os.path.join(
+                                        self.test_path,
+                                        "predictions",
+                                        test_loader.dataset.ascii_files[cloud_name],
+                                    )
+                                else:
+                                    ascii_filename = os.path.join(
+                                        self.test_path, "predictions", cloud_name[:-4] + ".txt"
+                                    )
+                                print(f"Write ascii predictions to {ascii_filename}...")
+                                t1 = time.time()
+                                with open(ascii_filename, "ab") as fobj:
+                                    np.savetxt(fobj, preds, fmt="%d")
+                                t2 = time.time()
+                                print(f"Done in {t2 - t1:.1f} s\n")
+
+                        # Save potentials
+                        pot_points = np.array(
+                            test_loader.dataset.pot_trees[file_idx].data, copy=False
+                        )
+                        pot_filename = os.path.join(self.test_path, "potentials", cloud_name)
+                        print(f"Write ply potentials to {pot_filename}...")
+                        t1 = time.time()
+                        pots = test_loader.dataset.potentials[file_idx].numpy().astype(np.float32)
+                        write_ply(
+                            pot_filename,
+                            [pot_points.astype(np.float32), pots],
+                            ["x", "y", "z", "pots"],
+                        )
+                        t2 = time.time()
+                        print(f"Done in {t2 - t1:.1f} s\n")
 
                     t2 = time.time()
-                    print(f"Done in {t2 - t1:.1f} s\n")
+                    print(f"Results saved in {t2 - t1:.1f} s\n")
 
                     # Show vote results
                     if test_loader.dataset.task == "validate":
@@ -380,15 +452,14 @@ class ModelTester:
                         Confs = []
                         for file_idx, _ in enumerate(test_loader.dataset.files):
 
-                            # Get the predicted labels
-                            preds = test_loader.dataset.label_values[
-                                np.argmax(proj_probs[file_idx], axis=1)
-                            ].astype(np.int32)
-
                             # Confusion
                             targets = test_loader.dataset.validation_labels[file_idx]
                             Confs += [
-                                fast_confusion(targets, preds, test_loader.dataset.label_values)
+                                fast_confusion(
+                                    targets,
+                                    preds_on_all_files[file_idx],
+                                    test_loader.dataset.label_values,
+                                )
                             ]
 
                         t2 = time.time()
@@ -414,67 +485,11 @@ class ModelTester:
                         print(s)
                         print("-" * len(s) + "\n")
 
-                    # Save predictions
-                    print("Saving clouds")
-                    t1 = time.time()
-                    for i, file_path in enumerate(test_loader.dataset.files):
-
-                        # Get file
-                        points = test_loader.dataset.load_evaluation_points(file_path)
-
-                        # Get the predicted labels
-                        preds = test_loader.dataset.label_values[
-                            np.argmax(proj_probs[i], axis=1)
-                        ].astype(np.int32)
-
-                        # Save plys
-                        cloud_name = file_path.name
-                        test_name = os.path.join(self.test_path, "predictions", cloud_name)
-                        write_ply(test_name, [points, preds], ["x", "y", "z", "preds"])
-                        test_name2 = os.path.join(self.test_path, "probs", cloud_name)
-                        prob_names = [
-                            "_".join(
-                                test_loader.dataset.config["model"]["label_to_names"][label].split()
-                            )
-                            for label in test_loader.dataset.label_values
-                        ]
-                        write_ply(
-                            test_name2,
-                            [points, proj_probs[i]],
-                            ["x", "y", "z"] + prob_names,
-                        )
-
-                        # Save potentials
-                        pot_points = np.array(test_loader.dataset.pot_trees[i].data, copy=False)
-                        pot_name = os.path.join(self.test_path, "potentials", cloud_name)
-                        pots = test_loader.dataset.potentials[i].numpy().astype(np.float32)
-                        write_ply(
-                            pot_name,
-                            [pot_points.astype(np.float32), pots],
-                            ["x", "y", "z", "pots"],
-                        )
-
-                        # Save ascii preds
-                        if test_loader.dataset.task == "test":
-                            if test_loader.dataset.config["dataset"] == "Semantic3D":
-                                ascii_name = os.path.join(
-                                    self.test_path,
-                                    "predictions",
-                                    test_loader.dataset.ascii_files[cloud_name],
-                                )
-                            else:
-                                ascii_name = os.path.join(
-                                    self.test_path, "predictions", cloud_name[:-4] + ".txt"
-                                )
-                            np.savetxt(ascii_name, preds, fmt="%d")
-
-                    t2 = time.time()
-                    print(f"Done in {t2 - t1:.1f} s\n")
-
             test_epoch += 1
 
             # Break when reaching number of desired votes
             if last_min > self.config["test"]["n_votes"]:
+                print(f"break: {last_min=}, {num_votes=}")
                 break
             print("---")
 

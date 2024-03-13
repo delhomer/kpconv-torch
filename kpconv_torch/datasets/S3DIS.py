@@ -842,6 +842,13 @@ class S3DISDataset(PointCloudDataset):
             raise OSError(f"Unsupported input file extension ({file_extension}).")
         return points, colors, labels
 
+    def generate_projected_point_batches(self, file_idx, file_path, step=5_000_000):
+        points, _, _ = self.read_input(file_path, xyz_only=True)
+        nb_points = points.shape[0]
+        for idx in range(0, nb_points, step):
+            max_idx = min(idx + step, nb_points)
+            yield points[idx:max_idx, :], self.test_proj[file_idx][idx:max_idx]
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 #
