@@ -196,7 +196,7 @@ def read_ply(filepath, triangular_mesh=False, xyz_only=False):
     return points, colors, labels
 
 
-def write_ply(filename, field_list, field_names, triangular_faces=None):
+def write_ply(filename, field_list, field_names, triangular_faces=None, write_header=True):
     """
     Write ".ply" files
 
@@ -259,26 +259,27 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
     if not filename.endswith(".ply"):
         filename += ".ply"
 
-    # open in text mode to write the header
-    with open(filename, "w") as plyfile:
+    if write_header:
+        # open in text mode to write the header
+        with open(filename, "w") as plyfile:
 
-        # First magical word and encoding format
-        header = ["ply", "format binary_" + sys.byteorder + "_endian 1.0"]
+            # First magical word and encoding format
+            header = ["ply", "format binary_" + sys.byteorder + "_endian 1.0"]
 
-        # Points properties description
-        header.extend(header_properties(field_list, field_names))
+            # Points properties description
+            header.extend(header_properties(field_list, field_names))
 
-        # Add faces if needded
-        if triangular_faces is not None:
-            header.append(f"element face {triangular_faces.shape[0]:d}")
-            header.append("property list uchar int vertex_indices")
+            # Add faces if needded
+            if triangular_faces is not None:
+                header.append(f"element face {triangular_faces.shape[0]:d}")
+                header.append("property list uchar int vertex_indices")
 
-        # End of header
-        header.append("end_header")
+            # End of header
+            header.append("end_header")
 
-        # Write all lines
-        for line in header:
-            plyfile.write("%s\n" % line)
+            # Write all lines
+            for line in header:
+                plyfile.write("%s\n" % line)
 
     # open in binary/append to use tofile
     with open(filename, "ab") as plyfile:
