@@ -68,7 +68,7 @@ class S3DISDataset(PointCloudDataset):
         # Data folder management
         if self.task == "test" and infered_file is not None:
             # Inference case: a S3DIS dataset is built with the infered file
-            self.cloud_names = [infered_file]
+            self.cloud_names = [infered_file.name]
         else:
             # Any other case: the S3DIS dataset is built with the S3DIS original data
             if self.task == "all":
@@ -86,7 +86,7 @@ class S3DISDataset(PointCloudDataset):
             ]
         self.files = [
             (
-                cloud_name
+                infered_file
                 if self.task == "test" and infered_file is not None
                 else self.train_files_path / (cloud_name + ".ply")
             )
