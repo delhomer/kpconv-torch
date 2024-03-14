@@ -53,21 +53,6 @@ def describe_element(name, df):
     return element
 
 
-def header_properties(field_list, field_names):
-
-    # First line describing element vertex
-    lines = ["element vertex %d" % field_list[0].shape[0]]
-
-    # Properties lines
-    i = 0
-    for fields in field_list:
-        for field in fields.T:
-            lines.append(f"property {field.dtype.name} {field_names[i]}")
-            i += 1
-
-    return lines
-
-
 def parse_header(plyfile, ext):
     # Variables
     line = []
@@ -196,7 +181,103 @@ def read_ply(filepath, triangular_mesh=False, xyz_only=False):
     return points, colors, labels
 
 
-def write_ply(filename, field_list, field_names, triangular_faces=None, write_header=True):
+def header_properties(nb_points, field_list, field_names):
+
+    # First line describing element vertex
+    lines = ["element vertex %d" % nb_points]
+
+    # Properties lines
+    i = 0
+    for fields in field_list:
+        for field in fields.T:
+            lines.append(f"property {field.dtype.name} {field_names[i]}")
+            i += 1
+
+    return lines
+
+
+def write_ply_header(filename, field_list, field_names, triangular_faces=None, nb_points=None):
+
+    if nb_points is None:
+        nb_points = field_list[0].shape[0]
+
+    # open in text mode to write the header
+    with open(filename, "w") as plyfile:
+
+        # First magical word and encoding format
+        header = ["ply", "format binary_" + sys.byteorder + "_endian 1.0"]
+
+        # Points properties description
+        header.extend(header_properties(nb_points, field_list, field_names))
+
+        # Add faces if needded
+        if triangular_faces is not None:
+            header.append(f"element face {triangular_faces.shape[0]:d}")
+            header.append("property list uchar int vertex_indices")
+
+        # End of header
+        header.append("end_header")
+
+        # Write all lines
+        for line in header:
+            plyfile.write("%s\n" % line)
+
+
+def check_ply_fields(field_list, field_names):
+    for i, field in enumerate(field_list):
+        if field.ndim < 2:
+            field_list[i] = field.reshape(-1, 1)
+        if field.ndim > 2:
+            print("fields have more than 2 dimensions")
+            return False
+    # check all fields have the same number of data
+    n_points = [field.shape[0] for field in field_list]
+    if not np.all(np.equal(n_points, n_points[0])):
+        print(
+            f"wrong field dimensions: all fields should have {n_points[0]} "
+            f"points, some have {np.min(n_points)}."
+        )
+        return False
+
+    # Check if field_names and field_list have same nb of column
+    n_fields = np.sum([field.shape[1] for field in field_list])
+    if n_fields != len(field_names):
+        print("wrong number of field names")
+        return False
+    return True
+
+
+def write_ply_data(filename, field_list, field_names, triangular_faces=None):
+
+    # open in binary/append to use tofile
+    with open(filename, "ab") as plyfile:
+        # Create a structured array
+        i = 0
+        type_list = []
+        for fields in field_list:
+            for field in fields.T:
+                type_list += [(field_names[i], field.dtype.str)]
+                i += 1
+        data = np.empty(field_list[0].shape[0], dtype=type_list)
+        i = 0
+        for fields in field_list:
+            for field in fields.T:
+                data[field_names[i]] = field
+                i += 1
+        data.tofile(plyfile)
+
+        if triangular_faces is not None:
+            triangular_faces = triangular_faces.astype(np.int32)
+            type_list = [("k", "uint8")] + [(str(ind), "int32") for ind in range(3)]
+            data = np.empty(triangular_faces.shape[0], dtype=type_list)
+            data["k"] = np.full((triangular_faces.shape[0],), 3, dtype=np.uint8)
+            data["0"] = triangular_faces[:, 0]
+            data["1"] = triangular_faces[:, 1]
+            data["2"] = triangular_faces[:, 2]
+            data.tofile(plyfile)
+
+
+def write_ply(filename, field_list, field_names, triangular_faces=None):
     """
     Write ".ply" files
 
@@ -227,86 +308,57 @@ def write_ply(filename, field_list, field_names, triangular_faces=None, write_he
     >>> field_names = ['x', 'y', 'z', 'red', 'green', 'blue', 'classification']
     >>> write_ply('example3.ply', [points, colors, values], field_names)
     """
-
     # Format list input to the right form
     field_list = (
         list(field_list)
         if (isinstance(field_list, list) or isinstance(field_list, tuple))
         else list((field_list,))  # noqa: C410
     )
-    for i, field in enumerate(field_list):
-        if field.ndim < 2:
-            field_list[i] = field.reshape(-1, 1)
-        if field.ndim > 2:
-            print("fields have more than 2 dimensions")
-            return False
-    # check all fields have the same number of data
-    n_points = [field.shape[0] for field in field_list]
-    if not np.all(np.equal(n_points, n_points[0])):
-        print(
-            f"wrong field dimensions: all fields should have {n_points[0]} "
-            f"points, some have {np.min(n_points)}."
-        )
-        return False
-
-    # Check if field_names and field_list have same nb of column
-    n_fields = np.sum([field.shape[1] for field in field_list])
-    if n_fields != len(field_names):
-        print("wrong number of field names")
-        return False
 
     # Add extension if not there
     if not filename.endswith(".ply"):
         filename += ".ply"
 
-    if write_header:
-        # open in text mode to write the header
-        with open(filename, "w") as plyfile:
+    if not check_ply_fields(field_list, field_names):
+        return False
+    write_ply_header(filename, field_list, field_names, triangular_faces)
+    write_ply_data(filename, field_list, field_names, triangular_faces)
+    return True
 
-            # First magical word and encoding format
-            header = ["ply", "format binary_" + sys.byteorder + "_endian 1.0"]
 
-            # Points properties description
-            header.extend(header_properties(field_list, field_names))
+def write_ply_from_generator(
+    filename, field_genlist, field_names, nb_points, triangular_faces=None
+):
+    # Add extension if not there
+    if not filename.endswith(".ply"):
+        filename += ".ply"
 
-            # Add faces if needded
-            if triangular_faces is not None:
-                header.append(f"element face {triangular_faces.shape[0]:d}")
-                header.append("property list uchar int vertex_indices")
-
-            # End of header
-            header.append("end_header")
-
-            # Write all lines
-            for line in header:
-                plyfile.write("%s\n" % line)
-
-    # open in binary/append to use tofile
-    with open(filename, "ab") as plyfile:
-
-        # Create a structured array
-        i = 0
-        type_list = []
-        for fields in field_list:
-            for field in fields.T:
-                type_list += [(field_names[i], field.dtype.str)]
-                i += 1
-        data = np.empty(field_list[0].shape[0], dtype=type_list)
-        i = 0
-        for fields in field_list:
-            for field in fields.T:
-                data[field_names[i]] = field
-                i += 1
-        data.tofile(plyfile)
-
-        if triangular_faces is not None:
-            triangular_faces = triangular_faces.astype(np.int32)
-            type_list = [("k", "uint8")] + [(str(ind), "int32") for ind in range(3)]
-            data = np.empty(triangular_faces.shape[0], dtype=type_list)
-            data["k"] = np.full((triangular_faces.shape[0],), 3, dtype=np.uint8)
-            data["0"] = triangular_faces[:, 0]
-            data["1"] = triangular_faces[:, 1]
-            data["2"] = triangular_faces[:, 2]
-            data.tofile(plyfile)
+    # First iteration so as to design the header
+    field_list = [next(gen) for gen in field_genlist]
+    # Format list input to the right form
+    field_list = (
+        list(field_list)
+        if (isinstance(field_list, list) or isinstance(field_list, tuple))
+        else list((field_list,))  # noqa: C410
+    )
+    if not check_ply_fields(field_list, field_names):
+        return False
+    write_ply_header(filename, field_list, field_names, triangular_faces, nb_points=nb_points)
+    write_ply_data(filename, field_list, field_names, triangular_faces)
+    # Remaining iterations
+    while True:
+        try:
+            field_list = [next(gen) for gen in field_genlist]
+        except StopIteration:
+            break
+        # Format list input to the right form
+        field_list = (
+            list(field_list)
+            if (isinstance(field_list, list) or isinstance(field_list, tuple))
+            else list((field_list,))  # noqa: C410
+        )
+        if not check_ply_fields(field_list, field_names):
+            return False
+        write_ply_data(filename, field_list, field_names, triangular_faces)
 
     return True

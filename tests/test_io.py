@@ -43,6 +43,27 @@ def test_write_ply_without_classification(fixture_path, points_array, colors_arr
 
 
 @mark.dependency()
+def test_write_ply_generator(fixture_path, points_array):
+    example_filepath = fixture_path / "example_from_generator.ply"
+    points = np.concatenate([points_array, points_array])
+
+    def point_gen(points):
+        """Produce a dummy generator for testing purpose, with two points per iteration."""
+        for p in range(0, points.shape[0], 2):
+            yield points[p : p + 2]
+
+    res = ply.write_ply_from_generator(
+        str(example_filepath),
+        [point_gen(points)],
+        ["x", "y", "z"],
+        nb_points=points.shape[0],
+    )
+    assert res and example_filepath.exists()
+    points_1, _, _ = ply.read_ply(str(example_filepath))
+    assert points_1.shape == points.shape
+
+
+@mark.dependency()
 def test_write_las_with_classification(
     fixture_path, points_array, colors_array, classification_array
 ):

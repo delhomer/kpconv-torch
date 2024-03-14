@@ -27,6 +27,7 @@ tests/fixtures/example_with_classification.*
 tests/fixtures/example_without_classification.*
 tests/fixtures/example.las
 tests/fixtures/example.xyz
+tests/fixtures/example_from_generator.ply
 tests/trained_models/
 tests/fixtures/S3DIS/calibration/
 tests/fixtures/S3DIS/input_0.030/
