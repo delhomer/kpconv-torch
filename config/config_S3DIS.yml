@@ -1,6 +1,22 @@
 # Name of the dataset, possible values: S3DIS, ModelNet40, SemanticKitti, Toronto3D, NPM3D
 dataset: S3DIS
 
+# see http://buildingparser.stanford.edu/dataset.html#sample
+colors:
+  - "#e7e75bff"
+  - "#689dc8ff"
+  - "#b1764eff"
+  - "#58a595ff"
+  - "#ec9682ff"
+  - "#50b046ff"
+  - "#6c8842ff"
+  - "#4f4f4cff"
+  - "#292c68ff"
+  - "#d93132ff"
+  - "#51205aff"
+  - "#536d73ff"
+  - "#eaeae6ff"
+
 input:
   # Type of network model, possible values: classification, segmentation, cloud_segmentation for S3DIS, slam_segmentation
   task: cloud_segmentation
