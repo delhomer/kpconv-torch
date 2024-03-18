@@ -1,12 +1,17 @@
 colors:
-  header: \033[95m
-  okblue: \033[94m
-  okgreen: \033[92m
-  warning: \033[93m
-  fail: \033[91m
-  endc: \033[0m
-  bold: \033[1m
-  underline: \033[4m
+  - "#e7e75bff"
+  - "#689dc8ff"
+  - "#b1764eff"
+  - "#58a595ff"
+  - "#ec9682ff"
+  - "#50b046ff"
+  - "#6c8842ff"
+  - "#4f4f4cff"
+  - "#292c68ff"
+  - "#d93132ff"
+  - "#51205aff"
+  - "#536d73ff"
+  - "#eaeae6ff"
 
 # Name of the dataset, possible values: S3DIS, ModelNet40, SemanticKitti, Toronto3D, NPM3D
 dataset: S3DIS
