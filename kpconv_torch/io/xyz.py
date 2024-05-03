@@ -21,6 +21,7 @@ def read_xyz(filepath, xyz_only=False):
         colors = data[:, 3:6].astype(np.uint8)
     else:
         colors = colors.shape[0] > 0
+    labels = np.full_like(data[:, 0], 0).astype(np.int8)
     if data.shape[1] == 4:
         labels = np.squeeze(data[:, 3]).astype(np.int8)
     if data.shape[1] == 7:
