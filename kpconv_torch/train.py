@@ -3,7 +3,7 @@ import os
 import sys
 import time
 
-from utils.config import load_config
+from kpconv_torch.utils.config import load_config
 import numpy as np
 from torch.utils.data import DataLoader
 

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from utils.config import load_config
+from kpconv_torch.utils.config import load_config
 from kpconv_torch.datasets.ModelNet40 import (
     ModelNet40Dataset,
 )
@@ -26,7 +26,7 @@ def preprocess(datapath: Path, dataset: str) -> None:
     # Option: set which gpu is going to be used and set the GPU visible device
     # By modifying the CUDA_VISIBLE_DEVICES environment variable
 
-    config = load_config("../config.yml")
+    config = load_config()
 
     ##############
     # Prepare Data

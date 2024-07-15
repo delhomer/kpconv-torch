@@ -5,8 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from utils.config import save_config
-from kpconv_torch.utils.config import Config
+from kpconv_torch.utils.config import save_config
 from kpconv_torch.utils.metrics import fast_confusion, IoU_from_confusions
 from kpconv_torch.io.ply import write_ply
 
@@ -268,7 +267,7 @@ class ModelTrainer:
     # Validation methods
     # ------------------------------------------------------------------------------------------------------------------
 
-    def validation(self, net, val_loader, config: Config):
+    def validation(self, net, val_loader, config):
         if config["input"]["dataset_task"] == "classification":
             self.object_classification_validation(net, val_loader, config)
         elif config["input"]["dataset_task"] == "segmentation":

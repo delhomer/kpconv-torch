@@ -1132,7 +1132,7 @@ class S3DISSampler(Sampler):
         neighb_limits = []
         for layer_ind in range(self.dataset.config["model"]["num_layers"]):
 
-            dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+            dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.deform_layers[layer_ind]:
                 r = dl * self.dataset.config.deform_radius
             else:

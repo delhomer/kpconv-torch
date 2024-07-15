@@ -2,7 +2,7 @@ import contextlib
 import os
 from pathlib import Path
 
-from utils.config import load_config
+from kpconv_torch.utils.config import load_config
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
