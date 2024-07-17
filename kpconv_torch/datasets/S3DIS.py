@@ -22,7 +22,13 @@ class S3DISDataset(PointCloudDataset):
     """Class to handle S3DIS dataset."""
 
     def __init__(
-        self, config, datapath, chosen_log=None, infered_file=None, load_data=True, split="train"
+        self,
+        config_file_path,
+        datapath,
+        chosen_log=None,
+        infered_file=None,
+        load_data=True,
+        split="train",
     ):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here.
@@ -38,8 +44,9 @@ class S3DISDataset(PointCloudDataset):
         - split: operation type to realize, can be "all", "ERF", "train", "test", "validation"
         """
         super().__init__(
-            config=config,
+            config_file_path=config_file_path,
             dataset="S3DIS",
+            datapath=datapath,
             chosen_log=chosen_log,
             infered_file=infered_file,
             split=split,
@@ -48,8 +55,6 @@ class S3DISDataset(PointCloudDataset):
         ############
         # Parameters
         ############
-
-        self.config = config
 
         # Initialize a bunch of variables concerning class labels
         # (cf. parent PointCloudDataset class)
@@ -70,8 +75,8 @@ class S3DISDataset(PointCloudDataset):
             os.makedirs(self.train_files_path)
 
         # Create path for files
-        t = self.config["train"]["first_subsampling_dl"]
-        self.tree_path = os.path.join(self.path, f"input_{t:.3f}")
+        t = self.config["kpconv"]["first_subsampling_dl"]
+        self.tree_path = os.path.join(self.datapath, f"input_{t:.3f}")
         if not os.path.exists(self.tree_path):
             os.makedirs(self.tree_path)
 
@@ -87,10 +92,10 @@ class S3DISDataset(PointCloudDataset):
                     + self.config["model"]["validation_cloud_names"]
                 )
             elif self.split == "train":
-                self.cloud_names = self.config["model"]["train_cloud_names"]
+                self.cloud_names = self.config["train"]["train_cloud_names"]
             else:
-                self.cloud_names = self.config["model"]["validation_cloud_names"]
-            available_cloud_data = [subfolder.name for subfolder in self.path.iterdir()]
+                self.cloud_names = self.config["train"]["validation_cloud_names"]
+            available_cloud_data = [subfolder.name for subfolder in self.datapath.iterdir()]
             self.cloud_names = [
                 cloud_name for cloud_name in self.cloud_names if cloud_name in available_cloud_data
             ]
@@ -136,7 +141,7 @@ class S3DISDataset(PointCloudDataset):
             # Batch selection parameters
             ############################
 
-            self.split_batch_selection_parameters()
+            self.set_batch_selection_parameters()
 
             # For ERF visualization, we want only one cloud per batch and no randomness
             if self.split == "ERF":
@@ -584,7 +589,7 @@ class S3DISDataset(PointCloudDataset):
                 continue
 
             # Get rooms of the current cloud
-            cloud_folder = os.path.join(self.path, cloud_name)
+            cloud_folder = os.path.join(self.datapath, cloud_name)
             room_folders = [
                 os.path.join(cloud_folder, room)
                 for room in os.listdir(cloud_folder)
@@ -668,10 +673,8 @@ class S3DISDataset(PointCloudDataset):
         print("File path:", file_path)
         # Check if inputs have already been computed
         if os.path.exists(KDTree_file):
-            print(
-                f"\nFound KDTree for cloud {cloud_name}, "
-                f"subsampled at {self.config.first_subsampling_dl:3f}"
-            )
+            t = self.config["kpconv"]["first_subsampling_dl"]
+            print(f"\nFound KDTree for cloud {cloud_name}, " f"subsampled at {t:3f}")
 
             # read ply with data
             _, sub_colors, sub_labels = self.read_input(sub_ply_file)
@@ -681,10 +684,8 @@ class S3DISDataset(PointCloudDataset):
                 search_tree = pickle.load(f)
 
         else:
-            print(
-                f"\nPreparing KDTree for cloud {cloud_name}, "
-                f"subsampled at {self.config.first_subsampling_dl:3f}."
-            )
+            t = self.config["kpconv"]["first_subsampling_dl"]
+            print(f"\nPreparing KDTree for cloud {cloud_name}, " f"subsampled at {t:3f}.")
 
             points, colors, labels = self.read_input(file_path)
 
@@ -693,7 +694,7 @@ class S3DISDataset(PointCloudDataset):
                 points,
                 features=colors,
                 labels=labels,
-                sampleDl=self.config.first_subsampling_dl,
+                sampleDl=self.config["kpconv"]["first_subsampling_dl"],
             )
 
             # Rescale float color and squeeze label
@@ -792,9 +793,11 @@ class S3DISDataset(PointCloudDataset):
 
         # Number of models used per epoch
         if self.split == "train":
-            self.epoch_n = self.config.epoch_steps * self.config.batch_num
+            self.epoch_n = self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
         else:
-            self.epoch_n = self.config.validation_size * self.config.batch_num
+            self.epoch_n = (
+                self.config["train"]["validation_size"] * self.config["train"]["batch_num"]
+            )
 
         # Initialize potentials
         if self.config["input"]["use_potentials"]:
@@ -818,7 +821,7 @@ class S3DISDataset(PointCloudDataset):
                 self.potentials[i].share_memory_()
 
             self.worker_waiting = torch.tensor(
-                [0 for _ in range(self.config.input_threads)], dtype=torch.int32
+                [0 for _ in range(self.config["input"]["input_threads"])], dtype=torch.int32
             )
             self.worker_waiting.share_memory_()
             self.epoch_inds = None
@@ -1097,10 +1100,12 @@ class S3DISSampler(Sampler):
             sampler_method = "potentials"
         else:
             sampler_method = "random"
-        key = (
-            f"{sampler_method}_{self.dataset.config.in_radius:3f}_"
-            f"{self.dataset.config.first_subsampling_dl:3f}_{self.dataset.config.batch_num}"
-        )
+
+        t1 = self.config["input"]["in_radius"]
+        t2 = self.config["kpconv"]["first_subsampling_dl"]
+        t3 = self.config["train"]["batch_num"]
+
+        key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_{t3}"
         if not redo and key in batch_lim_dict:
             self.dataset.batch_limit[0] = batch_lim_dict[key]
         else:
@@ -1150,7 +1155,7 @@ class S3DISSampler(Sampler):
         if verbose:
             print("Check neighbors limit dictionary")
             for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config.deform_radius
                 else:
@@ -1350,17 +1355,18 @@ class S3DISSampler(Sampler):
                 sampler_method = "potentials"
             else:
                 sampler_method = "random"
-            key = (
-                f"{sampler_method}_{self.dataset.config.in_radius:3f}_"
-                f"{self.dataset.config.first_subsampling_dl:3f}_{self.dataset.config.batch_num:d}"
-            )
+
+            t1 = self.config["input"]["in_radius"]
+            t2 = self.config["kpconv"]["first_subsampling_dl"]
+            t3 = self.config["train"]["batch_num"]
+            key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_{t3:d}"
             batch_lim_dict[key] = float(self.dataset.batch_limit)
             with open(batch_lim_file, "wb") as file:
                 pickle.dump(batch_lim_dict, file)
 
             # Save neighb_limit dictionary
             for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config.deform_radius
                 else:

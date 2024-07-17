@@ -19,7 +19,7 @@ class Toronto3DDataset(PointCloudDataset):
 
     def __init__(
         self,
-        config,
+        config_file_path,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -30,7 +30,7 @@ class Toronto3DDataset(PointCloudDataset):
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
         super().__init__(
-            config=config,
+            config_file_path=config_file_path,
             datapath=datapath,
             dataset="Toronto3D",
             chosen_log=chosen_log,
@@ -41,8 +41,6 @@ class Toronto3DDataset(PointCloudDataset):
         ############
         # Parameters
         ############
-
-        self.config = config
 
         # Dict from labels to names
         self.label_to_names = {
@@ -70,7 +68,7 @@ class Toronto3DDataset(PointCloudDataset):
         self.train_files_path = "train"
 
         # List of files to process
-        ply_path = os.path.join(self.path, self.train_files_path)
+        ply_path = os.path.join(self.datapath, self.train_files_path)
 
         # Proportion of validation scenes
         self.cloud_names = ["L001", "L002", "L003", "L004"]
@@ -86,9 +84,11 @@ class Toronto3DDataset(PointCloudDataset):
 
         # Number of models used per epoch
         if self.split == "train":
-            self.epoch_n = config["train"]["epoch_steps"] * config["train"]["batch_num"]
+            self.epoch_n = self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
         elif self.split in ["validation", "test", "ERF"]:
-            self.epoch_n = config["train"]["validation_size"] * config["train"]["batch_num"]
+            self.epoch_n = (
+                self.config["train"]["validation_size"] * self.config["train"]["batch_num"]
+            )
         else:
             raise ValueError("Unknown set for Toronto3D (with features) data: ", self.split)
 
@@ -176,7 +176,7 @@ class Toronto3DDataset(PointCloudDataset):
                 self.potentials[i].share_memory_()
 
             self.worker_waiting = torch.tensor(
-                [0 for _ in range(config["input"]["input_threads"])], dtype=torch.int32
+                [0 for _ in range(self.config["input"]["input_threads"])], dtype=torch.int32
             )
             self.worker_waiting.share_memory_()
             self.epoch_inds = None
@@ -635,7 +635,7 @@ class Toronto3DDataset(PointCloudDataset):
         t0 = time.time()
 
         # Folder for the ply files
-        ply_path = os.path.join(self.path, self.train_files_path)
+        ply_path = os.path.join(self.datapath, self.train_files_path)
         if not os.path.exists(ply_path):
             os.mkdir(ply_path)
 
@@ -647,7 +647,7 @@ class Toronto3DDataset(PointCloudDataset):
 
             print(f"\nPreparing ply for cloud {cloud_name}\n")
 
-            pc = read_ply(os.path.join(self.path, "original_ply/" + cloud_name + ".ply"))
+            pc = read_ply(os.path.join(self.datapath, "original_ply/" + cloud_name + ".ply"))
             xyz = np.vstack(
                 (
                     pc["x"] - self.UTM_OFFSET[0],
@@ -685,7 +685,7 @@ class Toronto3DDataset(PointCloudDataset):
         dl = self.config["kpconv"]["first_subsampling_dl"]
 
         # Create path for files
-        tree_path = os.path.join(self.path, f"input_{dl:.3f}")
+        tree_path = os.path.join(self.datapath, f"input_{dl:.3f}")
         if not os.path.exists(tree_path):
             os.mkdir(tree_path)
 
@@ -1141,7 +1141,7 @@ class Toronto3DSampler(Sampler):
         neighb_limits = []
         for layer_ind in range(self.dataset.config["model"]["num_layers"]):
 
-            dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+            dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.deform_layers[layer_ind]:
                 r = dl * self.dataset.config.deform_radius
             else:
@@ -1159,7 +1159,7 @@ class Toronto3DSampler(Sampler):
         if verbose:
             print("Check neighbors limit dictionary")
             for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config.deform_radius
                 else:
@@ -1371,7 +1371,7 @@ class Toronto3DSampler(Sampler):
 
             # Save neighb_limit dictionary
             for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config.deform_radius
                 else:

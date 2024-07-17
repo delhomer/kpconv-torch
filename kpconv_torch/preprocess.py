@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from kpconv_torch.utils.config import load_config
 from kpconv_torch.datasets.ModelNet40 import (
     ModelNet40Dataset,
 )
@@ -26,8 +25,6 @@ def preprocess(datapath: Path, dataset: str) -> None:
     # Option: set which gpu is going to be used and set the GPU visible device
     # By modifying the CUDA_VISIBLE_DEVICES environment variable
 
-    config = load_config()
-
     ##############
     # Prepare Data
     ##############
@@ -38,31 +35,31 @@ def preprocess(datapath: Path, dataset: str) -> None:
     # Initialize datasets
     if dataset == "ModelNet40":
         # Training
-        _ = ModelNet40Dataset(config=config, datapath=datapath, split="train")
+        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, split="train")
         # Validation
-        _ = ModelNet40Dataset(config=config, datapath=datapath, split="validation")
-    elif config["dataset"] == "NPM3D":
+        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, split="validation")
+    elif dataset == "NPM3D":
         # Training
-        _ = NPM3DDataset(config=config, datapath=datapath, split="train")
+        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, split="train")
         # Validation
-        _ = NPM3DDataset(config=config, datapath=datapath, split="validation")
-    elif config["dataset"] == "S3DIS":
+        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, split="validation")
+    elif dataset == "S3DIS":
         # Training
-        _ = S3DISDataset(config=config, datapath=datapath, split="train")
+        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, split="train")
         # Validation
-        _ = S3DISDataset(config=config, datapath=datapath, split="validation")
-    elif config["dataset"] == "SemanticKitti":
+        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, split="validation")
+    elif dataset == "SemanticKitti":
         # Training
-        _ = SemanticKittiDataset(config=config, datapath=datapath, split="train")
+        _ = SemanticKittiDataset(config_file_path="config.yml", datapath=datapath, split="train")
         # Validation
         _ = SemanticKittiDataset(
-            config=config,
+            config_file_path="config.yml",
             datapath=datapath,
             split="validation",
             balance_classes=False,
         )
-    elif config["dataset"] == "Toronto3D":
+    elif dataset == "Toronto3D":
         # Training
-        _ = Toronto3DDataset(config=config, datapath=datapath, split="train")
+        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, split="train")
         # Validation
-        _ = Toronto3DDataset(config=config, datapath=datapath, split="validation")
+        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, split="validation")

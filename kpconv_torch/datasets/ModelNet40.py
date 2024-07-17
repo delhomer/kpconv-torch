@@ -15,7 +15,7 @@ class ModelNet40Dataset(PointCloudDataset):
 
     def __init__(
         self,
-        config,
+        config_file_path,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -26,7 +26,7 @@ class ModelNet40Dataset(PointCloudDataset):
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
         super().__init__(
-            config=config,
+            config_file_path=config_file_path,
             datapath=datapath,
             dataset="ModelNet40",
             chosen_log=chosen_log,
@@ -45,29 +45,33 @@ class ModelNet40Dataset(PointCloudDataset):
         self.ignored_labels = np.array([])
 
         # Update number of class and data task in configuration
-        config.num_classes = self.num_classes
+        self.num_classes = self.config["input"]["num_classes"]
 
         # Number of models and models used per epoch
         if self.split == "train":
             self.num_models = 9843
             if (
-                config.epoch_steps
-                and config.epoch_steps * self.dataset.config["train"]["batch_num"] < self.num_models
+                self.config["train"]["epoch_steps"]
+                and self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
+                < self.num_models
             ):
-                self.epoch_n = config.epoch_steps * self.dataset.config["train"]["batch_num"]
+                self.epoch_n = (
+                    self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
+                )
             else:
                 self.epoch_n = self.num_models
         else:
             self.num_models = 2468
             self.epoch_n = min(
-                self.num_models, config.validation_size * self.dataset.config["train"]["batch_num"]
+                self.num_models,
+                self.config["train"]["validation_size"] * self.dataset.config["train"]["batch_num"],
             )
 
         #############
         # Load models
         #############
 
-        if 0 < self.config.first_subsampling_dl <= 0.01:
+        if 0 < self.config["kpconv"]["first_subsampling_dl"] <= 0.01:
             raise ValueError("subsampling_parameter too low (should be over 1 cm")
 
         (
@@ -168,10 +172,9 @@ class ModelNet40Dataset(PointCloudDataset):
         else:
             split = "test"
 
-        print(f"\nLoading {split} points subsampled at {self.config.first_subsampling_dl:3f}")
-        filename = os.path.join(
-            self.path, f"{split}_{self.config.first_subsampling_dl:3f}_record.pkl"
-        )
+        t = self.config["kpconv"]["first_subsampling_dl"]
+        print(f"\nLoading {split} points subsampled at {t:3f}")
+        filename = os.path.join(self.datapath, f"{split}_{t:3f}_record.pkl")
 
         if os.path.exists(filename):
             with open(filename, "rb") as file:
@@ -182,9 +185,11 @@ class ModelNet40Dataset(PointCloudDataset):
 
             # Collect train file names
             if self.split == "train":
-                names = np.loadtxt(os.path.join(self.path, "modelnet40_train.txt"), dtype=np.str)
+                names = np.loadtxt(
+                    os.path.join(self.datapath, "modelnet40_train.txt"), dtype=np.str
+                )
             else:
-                names = np.loadtxt(os.path.join(self.path, "modelnet40_test.txt"), dtype=np.str)
+                names = np.loadtxt(os.path.join(self.datapath, "modelnet40_test.txt"), dtype=np.str)
 
             # Initialize containers
             input_points = []
@@ -200,15 +205,15 @@ class ModelNet40Dataset(PointCloudDataset):
 
                 # Read points
                 class_folder = "_".join(cloud_name.split("_")[:-1])
-                txt_file = os.path.join(self.path, class_folder, cloud_name) + ".txt"
+                txt_file = os.path.join(self.datapath, class_folder, cloud_name) + ".txt"
                 data = np.loadtxt(txt_file, delimiter=",", dtype=np.float32)
 
                 # Subsample them
-                if self.config.first_subsampling_dl > 0:
+                if self.config["kpconv"]["first_subsampling_dl"] > 0:
                     points, normals = grid_subsampling(
                         data[:, :3],
                         features=data[:, 3:],
-                        sampleDl=self.config.first_subsampling_dl,
+                        sampleDl=self.config["kpconv"]["first_subsampling_dl"],
                     )
                 else:
                     points = data[:, :3]
@@ -601,7 +606,8 @@ class ModelNet40Sampler(Sampler):
 
             # Save batch_limit dictionary
             key = "{:.3f}_{:d}".format(
-                self.dataset.config.first_subsampling_dl, self.dataset.config["train"]["batch_num"]
+                self.dataset.config["kpconv"]["first_subsampling_dl"],
+                self.dataset.config["train"]["batch_num"],
             )
             batch_lim_dict[key] = self.batch_limit
             with open(batch_lim_file, "wb") as file:
@@ -609,7 +615,7 @@ class ModelNet40Sampler(Sampler):
 
             # Save neighb_limit dictionary
             for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config.deform_radius
                 else:

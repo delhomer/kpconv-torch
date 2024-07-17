@@ -19,7 +19,7 @@ class NPM3DDataset(PointCloudDataset):
 
     def __init__(
         self,
-        config,
+        config_file_path,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -30,7 +30,7 @@ class NPM3DDataset(PointCloudDataset):
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
         super().__init__(
-            config=config,
+            config_file_path=config_file_path,
             datapath=datapath,
             dataset="NPM3D",
             chosen_log=chosen_log,
@@ -70,7 +70,7 @@ class NPM3DDataset(PointCloudDataset):
         self.original_ply_path = "original_ply"
 
         # List of files to process
-        ply_path = os.path.join(self.path, self.train_files_path)
+        ply_path = os.path.join(self.datapath, self.train_files_path)
 
         # Proportion of validation scenes
         self.cloud_names = [
@@ -188,7 +188,7 @@ class NPM3DDataset(PointCloudDataset):
                 self.potentials[i].share_memory_()
 
             self.worker_waiting = torch.tensor(
-                [0 for _ in range(config.input_threads)], dtype=torch.int32
+                [0 for _ in range(self.config["input"]["input_threads"])], dtype=torch.int32
             )
             self.worker_waiting.share_memory_()
             self.epoch_inds = None
@@ -633,7 +633,7 @@ class NPM3DDataset(PointCloudDataset):
         t0 = time.time()
 
         # Folder for the ply files
-        ply_path = os.path.join(self.path, self.train_files_path)
+        ply_path = os.path.join(self.datapath, self.train_files_path)
         if not os.path.exists(ply_path):
             os.makedirs(ply_path)
 
@@ -645,7 +645,7 @@ class NPM3DDataset(PointCloudDataset):
                 continue
 
             original_ply = read_ply(
-                os.path.join(self.path, self.original_ply_path, cloud_name + ".ply")
+                os.path.join(self.datapath, self.original_ply_path, cloud_name + ".ply")
             )
 
             # Initiate containers
@@ -694,10 +694,10 @@ class NPM3DDataset(PointCloudDataset):
     def load_subsampled_clouds(self):
 
         # Parameter
-        dl = self.config.first_subsampling_dl
+        dl = self.config["kpconv"]["first_subsampling_dl"]
 
         # Create path for files
-        tree_path = os.path.join(self.path, f"input_{dl:.3f}")
+        tree_path = os.path.join(self.datapath, f"input_{dl:.3f}")
         if not os.path.exists(tree_path):
             os.makedirs(tree_path)
 
@@ -1360,18 +1360,20 @@ class NPM3DSampler(Sampler):
                 sampler_method = "potentials"
             else:
                 sampler_method = "random"
-            key = (
-                f"{sampler_method}_{self.dataset.config.in_radius:3f}_"
-                f"{self.dataset.config.first_subsampling_dl:3f}_"
-                f"{self.dataset.config.batch_num:d}"
-            )
+
+            t1 = self.config["input"]["in_radius"]
+            t2 = self.config["kpconv"]["first_subsampling_dl"]
+            t3 = self.config["train"]["batch_num"]
+
+            key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_" f"{t3:d}"
             batch_lim_dict[key] = float(self.dataset.batch_limit)
+
             with open(batch_lim_file, "wb") as file:
                 pickle.dump(batch_lim_dict, file)
 
             # Save neighb_limit dictionary
             for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config.deform_radius
                 else:

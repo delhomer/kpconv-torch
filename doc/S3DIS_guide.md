@@ -11,7 +11,7 @@ loacated at `XXXX/Data`. Therefore the relative path to the Data folder is `../.
 S3DIS dataset can be downloaded <a href="https://goo.gl/forms/4SoGp4KtH1jfRqEj2">here (4.8 GB)</a>.
 Download the file named `Stanford3dDataset_v1.2.zip`, uncompress the data and move it to `../../data/S3DIS`.
 
-> If you want to place your data anywhere else, you just have to change the variable `self.path` of `S3DISDataset` class ([here](https://github.com/HuguesTHOMAS/KPConv-PyTorch/blob/afa18c92f00c6ed771b61cb08b285d2f93446ea4/datasets/S3DIS.py#L88)).
+> If you want to place your data anywhere else, you just have to change the variable `self.datapath` of `S3DISDataset` class ([here](https://github.com/HuguesTHOMAS/KPConv-PyTorch/blob/afa18c92f00c6ed771b61cb08b285d2f93446ea4/datasets/S3DIS.py#L88)).
 
 S3DIS dataset is documented [here](http://buildingparser.stanford.edu/dataset.html). It contains:
 - 6 large-scale indoor areas, 3 buildings, 273 million points;

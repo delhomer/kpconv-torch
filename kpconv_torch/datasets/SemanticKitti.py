@@ -17,7 +17,7 @@ class SemanticKittiDataset(PointCloudDataset):
 
     def __init__(
         self,
-        config,
+        config_file_path,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -25,15 +25,13 @@ class SemanticKittiDataset(PointCloudDataset):
         split="train",
     ):
         super().__init__(
-            config=config,
+            config_file_path=config_file_path,
             datapath=datapath,
             dataset="SemanticKitti",
             chosen_log=chosen_log,
             infered_file=infered_file,
             split=split,
         )
-
-        self.config = config
 
         ##########################
         # Parameters for the files
@@ -52,7 +50,7 @@ class SemanticKittiDataset(PointCloudDataset):
         # List all files in each sequence
         self.frames = []
         for seq in self.sequences:
-            velo_path = os.path.join(self.path, "sequences", seq, "velodyne")
+            velo_path = os.path.join(self.datapath, "sequences", seq, "velodyne")
             frames = np.sort([vf[:-4] for vf in os.listdir(velo_path) if vf.endswith(".bin")])
             self.frames.append(frames)
 
@@ -61,10 +59,10 @@ class SemanticKittiDataset(PointCloudDataset):
         ###########################
 
         # Read labels
-        if config["kpconv"]["n_frames"] == 1:
-            config_file = os.path.join(self.path, "semantic-kitti.yaml")
-        elif config["kpconv"]["n_frames"] > 1:
-            config_file = os.path.join(self.path, "semantic-kitti-all.yaml")
+        if self.config["kpconv"]["n_frames"] == 1:
+            config_file = os.path.join(self.datapath, "semantic-kitti.yaml")
+        elif self.config["kpconv"]["n_frames"] > 1:
+            config_file = os.path.join(self.datapath, "semantic-kitti-all.yaml")
         else:
             raise ValueError("number of frames has to be >= 1")
 
@@ -95,7 +93,7 @@ class SemanticKittiDataset(PointCloudDataset):
         ##################
 
         # Update number of class and data task in configuration
-        config.num_classes = self.num_classes
+        self.config.num_classes = self.num_classes
 
         ##################
         # Load calibration
@@ -130,19 +128,19 @@ class SemanticKittiDataset(PointCloudDataset):
 
         # Choose batch_num in_R and max_in_p depending on validation or training
         if self.split == "train":
-            self.batch_num = config.batch_num
-            self.max_in_p = config.max_in_points
-            self.in_R = config.in_radius
+            self.batch_num = self.config["train"]["batch_num"]
+            self.max_in_p = self.config["kpconv"]["max_in_points"]
+            self.in_R = self.config["input"]["in_radius"]
         else:
-            self.batch_num = config.val_batch_num
-            self.max_in_p = config.max_val_points
-            self.in_R = config.val_radius
+            self.batch_num = self.config["train"]["val_batch_num"]
+            self.max_in_p = self.config["kpconv"]["max_val_points"]
+            self.in_R = self.config["kpconv"]["val_radius"]
 
         # shared epoch indices and classes (in case we want class balanced sampler)
         if self.split == "train":
-            N = int(np.ceil(config.epoch_steps * self.batch_num * 1.1))
+            N = int(np.ceil(self.config.epoch_steps * self.batch_num * 1.1))
         else:
-            N = int(np.ceil(config.validation_size * self.batch_num * 1.1))
+            N = int(np.ceil(self.config.validation_size * self.batch_num * 1.1))
         self.epoch_i = torch.from_numpy(np.zeros((1,), dtype=np.int64))
         self.epoch_inds = torch.from_numpy(np.zeros((N,), dtype=np.int64))
         self.epoch_labels = torch.from_numpy(np.zeros((N,), dtype=np.int32))
@@ -151,7 +149,7 @@ class SemanticKittiDataset(PointCloudDataset):
         self.epoch_labels.share_memory_()
 
         self.worker_waiting = torch.tensor(
-            [0 for _ in range(config.input_threads)], dtype=torch.int32
+            [0 for _ in range(self.config["input"]["input_threads"])], dtype=torch.int32
         )
         self.worker_waiting.share_memory_()
         self.worker_lock = Lock()
@@ -241,7 +239,7 @@ class SemanticKittiDataset(PointCloudDataset):
                         continue
 
                 # Path of points and labels
-                seq_path = os.path.join(self.path, "sequences", self.sequences[s_ind])
+                seq_path = os.path.join(self.datapath, "sequences", self.sequences[s_ind])
                 velo_file = os.path.join(
                     seq_path, "velodyne", self.frames[s_ind][f_ind - f_inc] + ".bin"
                 )
@@ -319,7 +317,7 @@ class SemanticKittiDataset(PointCloudDataset):
                 merged_points,
                 features=merged_coords,
                 labels=merged_labels,
-                sampleDl=self.config.first_subsampling_dl,
+                sampleDl=self.config["kpconv"]["first_subsampling_dl"],
             )
 
             t += [time.time()]
@@ -553,7 +551,7 @@ class SemanticKittiDataset(PointCloudDataset):
 
         for seq in self.sequences:
 
-            seq_folder = os.path.join(self.path, "sequences", seq)
+            seq_folder = os.path.join(self.datapath, "sequences", seq)
 
             # Read Calib
             self.calibrations.append(self.parse_calibration(os.path.join(seq_folder, "calib.txt")))
@@ -591,7 +589,9 @@ class SemanticKittiDataset(PointCloudDataset):
                 frame_mode = "single"
                 if self.config.n_frames > 1:
                     frame_mode = "multi"
-                seq_stat_file = os.path.join(self.path, "sequences", seq, f"stats_{frame_mode}.pkl")
+                seq_stat_file = os.path.join(
+                    self.datapath, "sequences", seq, f"stats_{frame_mode}.pkl"
+                )
 
                 # Check if inputs have already been computed
                 if os.path.exists(seq_stat_file):
@@ -611,7 +611,7 @@ class SemanticKittiDataset(PointCloudDataset):
                     seq_proportions = np.zeros((self.num_classes,), dtype=np.int32)
 
                     # Sequence path
-                    seq_path = os.path.join(self.path, "sequences", seq)
+                    seq_path = os.path.join(self.datapath, "sequences", seq)
 
                     # Read all frames
                     for f_ind, frame_name in enumerate(seq_frames):
@@ -901,9 +901,9 @@ class SemanticKittiSampler(Sampler):
             sampler_method = "balanced"
         else:
             sampler_method = "random"
-        key = (
-            f"{sampler_method}_{self.dataset.in_R:3f}_{self.dataset.config.first_subsampling_dl:3f}"
-        )
+
+        t = self.dataset.config["kpconv"]["first_subsampling_dl"]
+        key = f"{sampler_method}_{self.dataset.in_R:3f}_{t:3f}"
         if not redo and key in max_in_lim_dict:
             self.dataset.max_in_p = max_in_lim_dict[key]
         else:
@@ -1020,9 +1020,12 @@ class SemanticKittiSampler(Sampler):
             sampler_method = "balanced"
         else:
             sampler_method = "random"
+
+        t = self.dataset.config["kpconv"]["first_subsampling_dl"]
+
         key = (
             f"{sampler_method}_{self.dataset.in_R:3f}_"
-            f"{self.dataset.config.first_subsampling_dl:f}_"
+            f"{t:f}_"
             f"{self.dataset.batch_num:d}_{self.dataset.max_in_p:d}"
         )
         if not redo and key in batch_lim_dict:
@@ -1056,7 +1059,7 @@ class SemanticKittiSampler(Sampler):
         neighb_limits = []
         for layer_ind in range(self.dataset.config["model"]["num_layers"]):
 
-            dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+            dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.config.deform_layers[layer_ind]:
                 r = dl * self.dataset.config.deform_radius
             else:
@@ -1074,7 +1077,7 @@ class SemanticKittiSampler(Sampler):
         if verbose:
             print("Check neighbors limit dictionary")
             for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config.deform_radius
                 else:
@@ -1236,10 +1239,12 @@ class SemanticKittiSampler(Sampler):
             print("\n**************************************************\n")
 
             # Save batch_limit dictionary
+            t1 = self.config["kpconv"]["first_subsampling_dl"]
+            t2 = self.config["train"]["batch_num"]
             key = (
                 f"{sampler_method}_{self.dataset.in_R:3f}_"
-                f"{self.dataset.config.first_subsampling_dl:3f}_"
-                f"{self.dataset.batch_num:d}_{self.dataset.max_in_p:d}"
+                f"{t1:3f}_"
+                f"{t2:d}_{self.dataset.max_in_p:d}"
             )
             batch_lim_dict[key] = float(self.dataset.batch_limit[0])
             with open(batch_lim_file, "wb") as file:
@@ -1247,7 +1252,7 @@ class SemanticKittiSampler(Sampler):
 
             # Save neighb_limit dictionary
             for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config.first_subsampling_dl * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config.deform_radius
                 else:

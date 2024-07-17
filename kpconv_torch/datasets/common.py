@@ -185,12 +185,18 @@ def batch_neighbors(queries, supports, q_batches, s_batches, radius):
 class PointCloudDataset(Dataset):
     """Parent class for Point Cloud Datasets."""
 
-    def __init__(self, dataset, chosen_log=None, infered_file=None, split="train"):
+    def __init__(
+        self, config_file_path, datapath, dataset, chosen_log=None, infered_file=None, split="train"
+    ):
         """
         Initialize parameters of the dataset here.
         """
+        # Load configuration dictionary
+        self.config = load_config(config_file_path)
+
         # Name of the dataset
         self.name = dataset
+
         self.label_to_names = {}
         self.num_classes = 0
         self.label_values = np.zeros((0,), dtype=np.int32)
@@ -200,31 +206,28 @@ class PointCloudDataset(Dataset):
         self.neighborhood_limits = []
 
         # Training or test set
-        if split not in ["training", "validation", "test", "ERF", "all"]:
+        if split not in ["train", "validation", "test", "ERF", "all"]:
             raise ValueError("Unknown set for the dataset: ", split)
         else:
             self.split = split
 
+        self.datapath = datapath
+
         self.test_save_path = get_test_save_path(infered_file, chosen_log)
 
         # Learning rate decays, dictionary of all decay values with their epoch {epoch: decay}
-        self.lr_decays = {i: 0.1 ** (1 / 150) for i in range(1, config["train"]["max_epoch"])}
+        self.lr_decays = {i: 0.1 ** (1 / 150) for i in range(1, self.config["train"]["max_epoch"])}
 
         # Number of layers
         self.num_layers = (
             len(
                 [
                     block
-                    for block in config["model"]["architecture"]
+                    for block in self.config["model"]["architecture"]
                     if "pool" in block or "strided" in block
                 ]
             )
             + 1
-        )
-
-        # Number of layers
-        self.num_layers = (
-            len([block for block in self.architecture if "pool" in block or "strided" in block]) + 1
         )
 
         ###################
@@ -234,7 +237,7 @@ class PointCloudDataset(Dataset):
 
         layer_blocks = []
         self.deform_layers = []
-        for block in self.architecture:
+        for block in self.config["model"]["architecture"]:
 
             # Get all blocks of the layer
             if not (
@@ -391,7 +394,7 @@ class PointCloudDataset(Dataset):
     def classification_inputs(self, stacked_points, stacked_features, labels, stack_lengths):
 
         # Starting radius of convolutions
-        r_normal = self.config.first_subsampling_dl * self.config.conv_radius
+        r_normal = self.config["kpconv"]["first_subsampling_dl"] * self.config.conv_radius
 
         # Starting layer
         layer_blocks = []
@@ -500,7 +503,7 @@ class PointCloudDataset(Dataset):
     def segmentation_inputs(self, stacked_points, stacked_features, labels, stack_lengths):
 
         # Starting radius of convolutions
-        r_normal = self.config.first_subsampling_dl * self.config.conv_radius
+        r_normal = self.config["kpconv"]["first_subsampling_dl"] * self.config.conv_radius
 
         # Starting layer
         layer_blocks = []
