@@ -203,7 +203,7 @@ class PointCloudDataset(Dataset):
         self.neighborhood_limits = []
 
         # Training or test set
-        if task not in ["train", "validation", "test", "ERF", "all"]:
+        if task not in ["train", "validate", "test", "ERF", "all"]:
             raise ValueError("Unknown task for the dataset: ", task)
         else:
             self.task = task

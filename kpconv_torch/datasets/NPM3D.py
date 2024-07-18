@@ -24,7 +24,7 @@ class NPM3DDataset(PointCloudDataset):
         chosen_log=None,
         infered_file=None,
         load_data=True,
-        task="training",
+        task="train",
     ):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here
@@ -90,7 +90,7 @@ class NPM3DDataset(PointCloudDataset):
         # Number of models used per epoch
         if self.task == "train":
             self.epoch_n = self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
-        elif self.task in ["validation", "test", "ERF"]:
+        elif self.task in ["validate", "test", "ERF"]:
             self.epoch_n = (
                 self.config["train"]["validation_size"] * self.config["train"]["batch_num"]
             )
@@ -117,7 +117,7 @@ class NPM3DDataset(PointCloudDataset):
             if self.task == "train":
                 if self.all_tasks[i] in self.train_tasks:
                     self.files += [os.path.join(ply_path, f + ".ply")]
-            elif self.task in ["validation", "ERF"]:
+            elif self.task in ["validate", "ERF"]:
                 if self.all_tasks[i] == self.validation_task:
                     self.files += [os.path.join(ply_path, f + ".ply")]
             elif self.task == "test":
@@ -131,7 +131,7 @@ class NPM3DDataset(PointCloudDataset):
             self.cloud_names = [
                 f for i, f in enumerate(self.cloud_names) if self.all_tasks[i] in self.train_tasks
             ]
-        elif self.task in ["validation", "ERF"]:
+        elif self.task in ["validate", "ERF"]:
             self.cloud_names = [
                 f
                 for i, f in enumerate(self.cloud_names)
@@ -815,7 +815,7 @@ class NPM3DDataset(PointCloudDataset):
         self.num_clouds = len(self.input_trees)
 
         # Only necessary for validation and test sets
-        if self.task in ["validation", "test"]:
+        if self.task in ["validate", "test"]:
 
             print("\nPreparing reprojection indices for testing")
 

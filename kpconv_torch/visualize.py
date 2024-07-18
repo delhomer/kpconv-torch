@@ -122,7 +122,7 @@ def visualize(dataset: str, datapath: Path, chosen_log: Path) -> None:
         test_sampler = ModelNet40Sampler(test_dataset)
         collate_fn = ModelNet40Collate
     elif dataset == "S3DIS":
-        test_dataset = S3DISDataset(config=config, datapath=datapath, task="validation")
+        test_dataset = S3DISDataset(config=config, datapath=datapath, task="validate")
         test_sampler = S3DISSampler(test_dataset)
         collate_fn = S3DISCollate
     else:

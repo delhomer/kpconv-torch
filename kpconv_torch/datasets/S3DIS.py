@@ -41,7 +41,7 @@ class S3DISDataset(PointCloudDataset):
         - infered_file: -f CLI parameter, path to the file on which to predict semantic labels,
           using the trained model
         - load_data: boolean, saying if loading the .ply file is needed or not
-        - task: operation type to realize, can be "all", "ERF", "train", "test", "validation"
+        - task: operation type to realize, can be "all", "ERF", "train", "test", "validate"
         """
         super().__init__(
             config_file_path=config_file_path,
@@ -134,7 +134,7 @@ class S3DISDataset(PointCloudDataset):
                 if self.config["input"]["use_potentials"]:
                     self.load_coarse_potential_locations(cloud_name, cur_kdtree.data)
                 # Only necessary for validation and test sets
-                if self.task in ["validation", "test"]:
+                if self.task in ["validate", "test"]:
                     self.load_projection_indices(cloud_name, file_path, cur_kdtree)
 
             ############################

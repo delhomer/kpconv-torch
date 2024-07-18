@@ -40,7 +40,7 @@ class SemanticKittiDataset(PointCloudDataset):
         # Get a list of sequences
         if self.task == "train":
             self.sequences = [f"{i:02d}" for i in range(11) if i != 8]
-        elif self.task == "validation":
+        elif self.task == "validate":
             self.sequences = [f"{i:02d}" for i in range(11) if i == 8]
         elif self.task == "test":
             self.sequences = [f"{i:02d}" for i in range(11, 22)]
@@ -268,7 +268,7 @@ class SemanticKittiDataset(PointCloudDataset):
                 new_points = np.sum(np.expand_dims(hpoints, 2) * pose.T, axis=1)
 
                 # In case of validation, keep the original points in memory
-                if self.task in ["validation", "test"] and f_inc == 0:
+                if self.task in ["validate", "test"] and f_inc == 0:
                     o_pts = new_points[:, :3].astype(np.float32)
                     o_labels = sem_labels.astype(np.int32)
 
@@ -340,7 +340,7 @@ class SemanticKittiDataset(PointCloudDataset):
             t += [time.time()]
 
             # Before augmenting, compute reprojection inds (only for validation and test)
-            if self.task in ["validation", "test"]:
+            if self.task in ["validate", "test"]:
 
                 # get val_points that are in range
                 radiuses = np.sum(np.square(o_pts - p0), axis=1)
@@ -579,7 +579,7 @@ class SemanticKittiDataset(PointCloudDataset):
         # For each class list the frames containing them
         ################################################
 
-        if self.task in ["train", "validation"]:
+        if self.task in ["train", "validate"]:
 
             class_frames_bool = np.zeros((0, self.num_classes), dtype=np.bool)
             self.class_proportions = np.zeros((self.num_classes,), dtype=np.int32)
@@ -654,7 +654,7 @@ class SemanticKittiDataset(PointCloudDataset):
                     self.class_frames.append(torch.from_numpy(integer_inds.astype(np.int64)))
 
         # Add variables for validation
-        if self.task == "validation":
+        if self.task == "validate":
             self.val_points = []
             self.val_labels = []
             self.val_confs = []

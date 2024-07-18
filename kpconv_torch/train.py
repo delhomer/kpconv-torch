@@ -96,7 +96,7 @@ def train(
             config_file_path="config.yml",
             datapath=datapath,
             chosen_log=chosen_log,
-            task="validation",
+            task="validate",
         )
         train_sampler = ModelNet40Sampler(train_dataset, balance_labels=True)
         test_sampler = ModelNet40Sampler(test_dataset, balance_labels=True)
@@ -109,7 +109,7 @@ def train(
             config_file_path="config.yml",
             datapath=datapath,
             chosen_log=chosen_log,
-            task="validation",
+            task="validate",
         )
         train_sampler = NPM3DSampler(train_dataset)
         test_sampler = NPM3DSampler(test_dataset)
@@ -122,7 +122,7 @@ def train(
             config_file_path="config.yml",
             datapath=datapath,
             chosen_log=chosen_log,
-            task="validation",
+            task="validate",
         )
         train_sampler = S3DISSampler(train_dataset)
         test_sampler = S3DISSampler(test_dataset)
@@ -139,7 +139,7 @@ def train(
             config=config,
             datapath=datapath,
             chosen_log=chosen_log,
-            task="validation",
+            task="validate",
             balance_classes=False,
         )
         train_sampler = SemanticKittiSampler(train_dataset)
@@ -150,7 +150,7 @@ def train(
             config=config, datapath=datapath, chosen_log=chosen_log, task="train"
         )
         test_dataset = Toronto3DDataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, task="validation"
+            config=config, datapath=datapath, chosen_log=chosen_log, task="validate"
         )
         train_sampler = Toronto3DSampler(train_dataset)
         test_sampler = Toronto3DSampler(test_dataset)

@@ -37,17 +37,17 @@ def preprocess(datapath: Path, dataset: str) -> None:
         # Training
         _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
-        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, task="validation")
+        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, task="validate")
     elif dataset == "NPM3D":
         # Training
         _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
-        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, task="validation")
+        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, task="validate")
     elif dataset == "S3DIS":
         # Training
         _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
-        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, task="validation")
+        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, task="validate")
     elif dataset == "SemanticKitti":
         # Training
         _ = SemanticKittiDataset(config_file_path="config.yml", datapath=datapath, task="train")
@@ -55,11 +55,11 @@ def preprocess(datapath: Path, dataset: str) -> None:
         _ = SemanticKittiDataset(
             config_file_path="config.yml",
             datapath=datapath,
-            task="validation",
+            task="validate",
             balance_classes=False,
         )
     elif dataset == "Toronto3D":
         # Training
         _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
-        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, task="validation")
+        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, task="validate")

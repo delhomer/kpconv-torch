@@ -85,7 +85,7 @@ class Toronto3DDataset(PointCloudDataset):
         # Number of models used per epoch
         if self.task == "train":
             self.epoch_n = self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
-        elif self.task in ["validation", "test", "ERF"]:
+        elif self.task in ["validate", "test", "ERF"]:
             self.epoch_n = (
                 self.config["train"]["validation_size"] * self.config["train"]["batch_num"]
             )
@@ -112,7 +112,7 @@ class Toronto3DDataset(PointCloudDataset):
             if self.task == "train":
                 if self.all_tasks[i] != self.validation_task:
                     self.files += [os.path.join(ply_path, f + ".ply")]
-            elif self.task in ["validation", "test", "ERF"]:
+            elif self.task in ["validate", "test", "ERF"]:
                 if self.all_tasks[i] == self.validation_task:
                     self.files += [os.path.join(ply_path, f + ".ply")]
             else:
@@ -124,7 +124,7 @@ class Toronto3DDataset(PointCloudDataset):
                 for i, f in enumerate(self.cloud_names)
                 if self.all_tasks[i] != self.validation_task
             ]
-        elif self.task in ["validation", "test", "ERF"]:
+        elif self.task in ["validate", "test", "ERF"]:
             self.cloud_names = [
                 f
                 for i, f in enumerate(self.cloud_names)
@@ -825,7 +825,7 @@ class Toronto3DDataset(PointCloudDataset):
         self.num_clouds = len(self.input_trees)
 
         # Only necessary for validation and test sets
-        if self.task in ["validation", "test"]:
+        if self.task in ["validate", "test"]:
 
             print("\nPreparing reprojection indices for testing")
 

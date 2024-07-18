@@ -119,7 +119,7 @@ def test(
     print("Data Preparation")
     print("****************")
 
-    task = "validation" if on_val else "test"
+    task = "validate" if on_val else "test"
 
     # Initiate dataset
     if dataset == "ModelNet40":
@@ -138,7 +138,7 @@ def test(
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=filename,
-            task="validation" if filename is None else "test",
+            task="validate" if filename is None else "test",
         )
         test_sampler = S3DISSampler(test_dataset)
         collate_fn = S3DISCollate
