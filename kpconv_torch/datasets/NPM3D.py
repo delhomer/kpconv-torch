@@ -19,7 +19,7 @@ class NPM3DDataset(PointCloudDataset):
 
     def __init__(
         self,
-        config_file_path,
+        config,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -30,9 +30,8 @@ class NPM3DDataset(PointCloudDataset):
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
         super().__init__(
-            config_file_path=config_file_path,
+            config=config,
             datapath=datapath,
-            dataset="NPM3D",
             chosen_log=chosen_log,
             infered_file=infered_file,
             task=task,
@@ -42,28 +41,11 @@ class NPM3DDataset(PointCloudDataset):
         # Parameters
         ############
 
-        # Dict from labels to names
-        self.label_to_names = {
-            0: "unclassified",
-            1: "ground",
-            2: "building",
-            3: "pole",  # pole - road sign - traffic light
-            4: "bollard",  # bollard - small pole
-            5: "trash",  # trash can
-            6: "barrier",
-            7: "pedestrian",
-            8: "car",
-            9: "natural",  # natural - vegetation
-        }
-
-        # Initialize a bunch of variables concerning class labels
-        self.init_labels()
-
         # List of classes ignored during training (can be empty)
         self.ignored_labels = np.array([0])
 
         # Update number of class and data task in configuration
-        self.config["input"]["num_classes"] = self.num_classes - len(self.ignored_labels)
+        config["input"]["num_classes"] = self.num_classes - len(self.ignored_labels)
 
         # Path of the training files
         self.train_files_path = "train"
@@ -89,11 +71,9 @@ class NPM3DDataset(PointCloudDataset):
 
         # Number of models used per epoch
         if self.task == "train":
-            self.epoch_n = self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
+            self.epoch_n = config["train"]["epoch_steps"] * config["train"]["batch_num"]
         elif self.task in ["validate", "test", "ERF"]:
-            self.epoch_n = (
-                self.config["train"]["validation_size"] * self.config["train"]["batch_num"]
-            )
+            self.epoch_n = config["train"]["validation_size"] * config["train"]["batch_num"]
         else:
             raise ValueError("Unknown task for NPM3D data: ", self.task)
 
@@ -143,7 +123,7 @@ class NPM3DDataset(PointCloudDataset):
             ]
         print("The files are " + str(self.cloud_names))
 
-        if 0 < self.config["kpconv"]["first_subsampling_dl"] <= 0.01:
+        if 0 < config["kpconv"]["first_subsampling_dl"] <= 0.01:
             raise ValueError("subsampling_parameter too low (should be over 1 cm")
 
         # Initiate containers
@@ -167,7 +147,7 @@ class NPM3DDataset(PointCloudDataset):
         self.batch_limit.share_memory_()
 
         # Initialize potentials
-        if self.config["input"]["use_potentials"]:
+        if config["input"]["use_potentials"]:
             self.potentials = []
             self.min_potentials = []
             self.argmin_potentials = []
@@ -188,7 +168,7 @@ class NPM3DDataset(PointCloudDataset):
                 self.potentials[i].share_memory_()
 
             self.worker_waiting = torch.tensor(
-                [0 for _ in range(self.config["input"]["input_threads"])], dtype=torch.int32
+                [0 for _ in range(config["input"]["input_threads"])], dtype=torch.int32
             )
             self.worker_waiting.share_memory_()
             self.epoch_inds = None
@@ -226,11 +206,11 @@ class NPM3DDataset(PointCloudDataset):
         """
 
         if self.config["input"]["use_potentials"]:
-            return self.potential_item(batch_i)
+            return self.potential_item()
         else:
             return self.random_item(batch_i)
 
-    def potential_item(self, config, batch_i, debug_workers=False):
+    def potential_item(self, debug_workers=False):
 
         t = [time.time()]
 
@@ -260,8 +240,8 @@ class NPM3DDataset(PointCloudDataset):
                 message = ""
                 for wi in range(info.num_workers):
                     if wi == wid:
-                        t1 = config["colors"]["fail"]
-                        t2 = config["colors"]["endc"]
+                        t1 = self.config["colors"]["fail"]
+                        t2 = self.config["colors"]["endc"]
                         message += f" {t1}X{t2} "
                     elif self.worker_waiting[wi] == 0:
                         message += "   "
@@ -278,8 +258,8 @@ class NPM3DDataset(PointCloudDataset):
                     message = ""
                     for wi in range(info.num_workers):
                         if wi == wid:
-                            t1 = config["colors"]["okgreen"]
-                            t2 = config["colors"]["endc"]
+                            t1 = self.config["colors"]["okgreen"]
+                            t2 = self.config["colors"]["endc"]
                             message += f" {t1}v{t2} "
                         elif self.worker_waiting[wi] == 0:
                             message += "   "
@@ -303,12 +283,12 @@ class NPM3DDataset(PointCloudDataset):
                 # Add a small noise to center point
                 if self.task != "ERF":
                     center_point += np.random.normal(
-                        scale=self.config.in_radius / 10, size=center_point.shape
+                        scale=self.config["input"]["in_radius"] / 10, size=center_point.shape
                     )
 
                 # Indices of points in input region
                 pot_inds, dists = self.pot_trees[cloud_ind].query_radius(
-                    center_point, r=self.config.in_radius, return_distance=True
+                    center_point, r=self.config["input"]["in_radius"], return_distance=True
                 )
 
                 d2s = np.square(dists[0])
@@ -316,8 +296,8 @@ class NPM3DDataset(PointCloudDataset):
 
                 # Update potentials (Tukey weights)
                 if self.task != "ERF":
-                    tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
-                    tukeys[d2s > np.square(self.config.in_radius)] = 0
+                    tukeys = np.square(1 - d2s / np.square(self.config["input"]["in_radius"]))
+                    tukeys[d2s > np.square(self.config["input"]["in_radius"])] = 0
                     self.potentials[cloud_ind][pot_inds] += tukeys
                     min_ind = torch.argmin(self.potentials[cloud_ind])
                     self.min_potentials[[cloud_ind]] = self.potentials[cloud_ind][min_ind]
@@ -330,7 +310,7 @@ class NPM3DDataset(PointCloudDataset):
 
             # Indices of points in input region
             input_inds = self.input_trees[cloud_ind].query_radius(
-                center_point, r=self.config.in_radius
+                center_point, r=self.config["input"]["in_radius"]
             )[0]
 
             t += [time.time()]
@@ -341,7 +321,7 @@ class NPM3DDataset(PointCloudDataset):
             # Safe check for empty spheres
             if n < 2:
                 failed_attempts += 1
-                if failed_attempts > 100 * self.config.batch_num:
+                if failed_attempts > 100 * self.config["train"]["batch_num"]:
                     raise ValueError("It seems this dataset only contains empty input spheres")
                 t += [time.time()]
                 t += [time.time()]
@@ -398,11 +378,11 @@ class NPM3DDataset(PointCloudDataset):
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
+        if self.config["input"]["in_features_dim"] == 1:
             pass
-        elif self.config.in_features_dim == 4:
+        elif self.config["input"]["in_features_dim"] == 4:
             stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
+        elif self.config["input"]["in_features_dim"] == 5:
             stacked_features = np.hstack((stacked_features, features))
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
@@ -430,8 +410,8 @@ class NPM3DDataset(PointCloudDataset):
             message = ""
             for wi in range(info.num_workers):
                 if wi == wid:
-                    t1 = config["colors"]["okblue"]
-                    t2 = config["colors"]["endc"]
+                    t1 = self.config["colors"]["okblue"]
+                    t2 = self.config["colors"]["endc"]
                     message += f" {t1}0{t2} "
                 elif self.worker_waiting[wi] == 0:
                     message += "   "
@@ -536,12 +516,12 @@ class NPM3DDataset(PointCloudDataset):
             # Add a small noise to center point
             if self.task != "ERF":
                 center_point += np.random.normal(
-                    scale=self.config.in_radius / 10, size=center_point.shape
+                    scale=self.config["input"]["in_radius"] / 10, size=center_point.shape
                 )
 
             # Indices of points in input region
             input_inds = self.input_trees[cloud_ind].query_radius(
-                center_point, r=self.config.in_radius
+                center_point, r=self.config["input"]["in_radius"]
             )[0]
 
             # Number collected
@@ -550,7 +530,7 @@ class NPM3DDataset(PointCloudDataset):
             # Safe check for empty spheres
             if n < 2:
                 failed_attempts += 1
-                if failed_attempts > 100 * self.config.batch_num:
+                if failed_attempts > 100 * self.config["train"]["batch_num"]:
                     raise ValueError("It seems this dataset only contains empty input spheres")
                 continue
 
@@ -601,11 +581,11 @@ class NPM3DDataset(PointCloudDataset):
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
+        if self.config["input"]["in_features_dim"] == 1:
             pass
-        elif self.config.in_features_dim == 4:
+        elif self.config["input"]["in_features_dim"] == 4:
             stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
+        elif self.config["input"]["in_features_dim"] == 5:
             stacked_features = np.hstack((stacked_features, features))
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
@@ -774,7 +754,7 @@ class NPM3DDataset(PointCloudDataset):
             # Restart timer
             t0 = time.time()
 
-            pot_dl = self.config.in_radius / 10
+            pot_dl = self.config["input"]["in_radius"] / 10
 
             for file_idx, _ in enumerate(self.files):
 
@@ -905,7 +885,7 @@ class NPM3DSampler(Sampler):
             all_epoch_inds = np.zeros((2, 0), dtype=np.int64)
 
             # Number of sphere centers taken per class in each cloud
-            num_centers = self.N * self.dataset.config.batch_num
+            num_centers = self.N * self.dataset.config["train"]["batch_num"]
             random_pick_n = int(np.ceil(num_centers / self.dataset.config.num_classes))
 
             # Choose random points of each class for each cloud
@@ -1136,8 +1116,8 @@ class NPM3DSampler(Sampler):
 
         # Check if the limit associated with current parameters exists (for each layer)
         neighb_limits = []
-        self.config["colors"]["endc"]
-        for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+        config["colors"]["endc"]
+        for layer_ind in range(self.dataset.num_layers):
 
             dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.deform_layers[layer_ind]:
@@ -1149,14 +1129,14 @@ class NPM3DSampler(Sampler):
             if key in neighb_lim_dict:
                 neighb_limits += [neighb_lim_dict[key]]
 
-        if not redo and len(neighb_limits) == self.dataset.config["model"]["num_layers"]:
+        if not redo and len(neighb_limits) == self.dataset.num_layers:
             self.dataset.neighborhood_limits = neighb_limits
         else:
             redo = True
 
         if verbose:
             print("Check neighbors limit dictionary")
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config["kpconv"]["deform_radius"]
@@ -1165,12 +1145,12 @@ class NPM3DSampler(Sampler):
                 key = f"{dl:.3f}_{r:.3f}"
 
                 if key in neighb_lim_dict:
-                    color = self.config["colors"]["okgreen"]
+                    color = config["colors"]["okgreen"]
                     v = str(neighb_lim_dict[key])
                 else:
-                    color = self.config["colors"]["fail"]
+                    color = config["colors"]["fail"]
                     v = "?"
-                print(f'{color}"{key}": {v}{self.config["colors"]["endc"]}')
+                print(f'{color}"{key}": {v}{config["colors"]["endc"]}')
 
         if redo:
 
@@ -1184,9 +1164,7 @@ class NPM3DSampler(Sampler):
             )
 
             # Histogram of neighborhood sizes
-            neighb_hists = np.zeros(
-                (self.dataset.config["model"]["num_layers"], hist_n), dtype=np.int32
-            )
+            neighb_hists = np.zeros((self.dataset.num_layers, hist_n), dtype=np.int32)
 
             ########################
             # Batch calib parameters
@@ -1342,11 +1320,11 @@ class NPM3DSampler(Sampler):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
                         if neighb_size > percentiles[layer]:
-                            color = self.config["colors"]["fail"]
+                            color = config["colors"]["fail"]
                         else:
-                            color = self.config["colors"]["okgreen"]
+                            color = config["colors"]["okgreen"]
                         line0 += "|{:}{:10d}{:}  ".format(
-                            color, neighb_hists[layer, neighb_size], self.config["colors"]["endc"]
+                            color, neighb_hists[layer, neighb_size], config["colors"]["endc"]
                         )
 
                     print(line0)
@@ -1356,14 +1334,14 @@ class NPM3DSampler(Sampler):
                 print()
 
             # Save batch_limit dictionary
-            if self.config["input"]["use_potentials"]:
+            if config["input"]["use_potentials"]:
                 sampler_method = "potentials"
             else:
                 sampler_method = "random"
 
-            t1 = self.config["input"]["in_radius"]
-            t2 = self.config["kpconv"]["first_subsampling_dl"]
-            t3 = self.config["train"]["batch_num"]
+            t1 = config["input"]["in_radius"]
+            t2 = config["kpconv"]["first_subsampling_dl"]
+            t3 = config["train"]["batch_num"]
 
             key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_" f"{t3:d}"
             batch_lim_dict[key] = float(self.dataset.batch_limit)
@@ -1372,12 +1350,12 @@ class NPM3DSampler(Sampler):
                 pickle.dump(batch_lim_dict, file)
 
             # Save neighb_limit dictionary
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.config.deform_radius
+                    r = dl * self.dataset.config["train"]["batch_num"]
                 else:
-                    r = dl * self.dataset.config.conv_radius
+                    r = dl * self.dataset.config["kpconv"]["conv_radius"]
                 key = f"{dl:.3f}_{r:.3f}"
                 neighb_lim_dict[key] = self.dataset.neighborhood_limits[layer_ind]
             with open(neighb_lim_file, "wb") as file:
@@ -1569,7 +1547,7 @@ def debug_timing(dataset, loader):
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
-    estim_b = dataset.config.batch_num
+    estim_b = dataset.config["train"]["batch_num"]
     estim_N = 0
 
     for _ in range(10):

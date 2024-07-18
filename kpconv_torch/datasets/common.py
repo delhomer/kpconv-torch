@@ -1,6 +1,5 @@
 import numpy as np
 from torch.utils.data import Dataset
-from kpconv_torch.utils.config import load_config
 
 import radius_neighbors as cpp_neighbors
 import grid_subsampling as cpp_subsampling
@@ -185,16 +184,12 @@ def batch_neighbors(queries, supports, q_batches, s_batches, radius):
 class PointCloudDataset(Dataset):
     """Parent class for Point Cloud Datasets."""
 
-    def __init__(
-        self, config_file_path, datapath, dataset, chosen_log=None, infered_file=None, task="train"
-    ):
+    def __init__(self, config, datapath, chosen_log=None, infered_file=None, task="train"):
         """
         Initialize parameters of the dataset here.
         """
-        # Load configuration dictionary
-        self.config = load_config(config_file_path, dataset)
+        self.config = config
 
-        self.label_to_names = {}
         self.num_classes = 0
         self.label_values = np.zeros((0,), dtype=np.int32)
         self.label_names = []
@@ -213,14 +208,14 @@ class PointCloudDataset(Dataset):
         self.test_save_path = get_test_save_path(infered_file, chosen_log)
 
         # Learning rate decays, dictionary of all decay values with their epoch {epoch: decay}
-        self.lr_decays = {i: 0.1 ** (1 / 150) for i in range(1, self.config["train"]["max_epoch"])}
+        self.lr_decays = {i: 0.1 ** (1 / 150) for i in range(1, config["train"]["max_epoch"])}
 
         # Number of layers
         self.num_layers = (
             len(
                 [
                     block
-                    for block in self.config["model"]["architecture"]
+                    for block in config["model"]["architecture"]
                     if "pool" in block or "strided" in block
                 ]
             )
@@ -234,7 +229,7 @@ class PointCloudDataset(Dataset):
 
         layer_blocks = []
         self.deform_layers = []
-        for block in self.config["model"]["architecture"]:
+        for block in config["model"]["architecture"]:
 
             # Get all blocks of the layer
             if not (
@@ -260,6 +255,14 @@ class PointCloudDataset(Dataset):
             if "global" in block or "upsample" in block:
                 break
 
+        # Initialize all label parameters given the label_to_names dict
+        print(self.config["model"]["label_to_names"])
+        self.num_classes = len(self.config["model"]["label_to_names"])
+        self.label_values = np.sort([k for k, _ in self.config["model"]["label_to_names"].items()])
+        self.label_names = [self.config["model"]["label_to_names"][k] for k in self.label_values]
+        self.label_to_idx = {l: i for i, l in enumerate(self.label_values)}
+        self.name_to_label = {v: k for k, v in self.config["model"]["label_to_names"].items()}
+
         return
 
     def __len__(self):
@@ -275,15 +278,6 @@ class PointCloudDataset(Dataset):
 
         return 0
 
-    def init_labels(self):
-
-        # Initialize all label parameters given the label_to_names dict
-        self.num_classes = len(self.label_to_names)
-        self.label_values = np.sort([k for k, v in self.label_to_names.items()])
-        self.label_names = [self.label_to_names[k] for k in self.label_values]
-        self.label_to_idx = {l: i for i, l in enumerate(self.label_values)}
-        self.name_to_label = {v: k for k, v in self.label_to_names.items()}
-
     def augmentation_transform(self, points, normals=None, verbose=False):
         """Implementation of an augmentation transform for point clouds."""
 
@@ -295,14 +289,14 @@ class PointCloudDataset(Dataset):
         R = np.eye(points.shape[1])
 
         if points.shape[1] == 3:
-            if self.config.augment_rotation == "vertical":
+            if self.config["train"]["augment_rotation"] == "vertical":
 
                 # Create random rotations
                 theta = np.random.rand() * 2 * np.pi
                 c, s = np.cos(theta), np.sin(theta)
                 R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float32)
 
-            elif self.config.augment_rotation == "all":
+            elif self.config["train"]["augment_rotation"] == "all":
 
                 # Choose two random angles for the first vector in polar coordinates
                 theta = np.random.rand() * 2 * np.pi
@@ -330,15 +324,15 @@ class PointCloudDataset(Dataset):
         #######
 
         # Choose random scales for each example
-        min_s = self.config.augment_scale_min
-        max_s = self.config.augment_scale_max
-        if self.config.augment_scale_anisotropic:
+        min_s = self.config["train"]["augment_scale_min"]
+        max_s = self.config["train"]["augment_scale_max"]
+        if self.config["train"]["augment_scale_anisotropic"]:
             scale = np.random.rand(points.shape[1]) * (max_s - min_s) + min_s
         else:
             scale = np.random.rand() * (max_s - min_s) + min_s
 
         # Add random symmetries to the scale factor
-        symmetries = np.array(self.config.augment_symmetries).astype(np.int32)
+        symmetries = np.array(self.config["train"]["augment_symmetries"]).astype(np.int32)
         symmetries *= np.random.randint(2, size=points.shape[1])
         scale = (scale * (1 - symmetries * 2)).astype(np.float32)
 
@@ -347,7 +341,8 @@ class PointCloudDataset(Dataset):
         #######
 
         noise = (
-            np.random.randn(points.shape[0], points.shape[1]) * self.config.augment_noise
+            np.random.randn(points.shape[0], points.shape[1])
+            * self.config["train"]["augment_noise"]
         ).astype(np.float32)
 
         ##################
@@ -391,7 +386,9 @@ class PointCloudDataset(Dataset):
     def classification_inputs(self, stacked_points, stacked_features, labels, stack_lengths):
 
         # Starting radius of convolutions
-        r_normal = self.config["kpconv"]["first_subsampling_dl"] * self.config.conv_radius
+        r_normal = (
+            self.config["kpconv"]["first_subsampling_dl"] * self.config["kpconv"]["conv_radius"]
+        )
 
         # Starting layer
         layer_blocks = []
@@ -422,7 +419,11 @@ class PointCloudDataset(Dataset):
             if layer_blocks:
                 # Convolutions are done in this layer, compute the neighbors with the good radius
                 if np.any(["deformable" in blck for blck in layer_blocks]):
-                    r = r_normal * self.config.deform_radius / self.config.conv_radius
+                    r = (
+                        r_normal
+                        * self.config["train"]["batch_num"]
+                        / self.config["kpconv"]["conv_radius"]
+                    )
                     deform_layer = True
                 else:
                     r = r_normal
@@ -441,14 +442,18 @@ class PointCloudDataset(Dataset):
             if "pool" in block or "strided" in block:
 
                 # New subsampling length
-                dl = 2 * r_normal / self.config.conv_radius
+                dl = 2 * r_normal / self.config["kpconv"]["conv_radius"]
 
                 # Subsampled points
                 pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
 
                 # Radius of pooled neighbors
                 if "deformable" in block:
-                    r = r_normal * self.config.deform_radius / self.config.conv_radius
+                    r = (
+                        r_normal
+                        * self.config["train"]["batch_num"]
+                        / self.config["kpconv"]["conv_radius"]
+                    )
                     deform_layer = True
                 else:
                     r = r_normal
@@ -500,7 +505,9 @@ class PointCloudDataset(Dataset):
     def segmentation_inputs(self, stacked_points, stacked_features, labels, stack_lengths):
 
         # Starting radius of convolutions
-        r_normal = self.config["kpconv"]["first_subsampling_dl"] * self.config.conv_radius
+        r_normal = (
+            self.config["kpconv"]["first_subsampling_dl"] * self.config["kpconv"]["conv_radius"]
+        )
 
         # Starting layer
         layer_blocks = []
@@ -517,9 +524,7 @@ class PointCloudDataset(Dataset):
         # Loop over the blocks
         ######################
 
-        config = load_config("config.yml")
-
-        for block in config["model"]["architecture"]:
+        for block in self.config["model"]["architecture"]:
             # Get all blocks of the layer
             if not (
                 "pool" in block or "strided" in block or "global" in block or "upsample" in block
@@ -537,8 +542,8 @@ class PointCloudDataset(Dataset):
                 if np.any(["deformable" in blck for blck in layer_blocks]):
                     r = (
                         r_normal
-                        * config["kpconv"]["deform_radius"]
-                        / config["kpconv"]["conv_radius"]
+                        * self.config["kpconv"]["deform_radius"]
+                        / self.config["kpconv"]["conv_radius"]
                     )
                     deform_layer = True
                 else:
@@ -558,14 +563,18 @@ class PointCloudDataset(Dataset):
             if "pool" in block or "strided" in block:
 
                 # New subsampling length
-                dl = 2 * r_normal / self.config.conv_radius
+                dl = 2 * r_normal / self.config["kpconv"]["conv_radius"]
 
                 # Subsampled points
                 pool_p, pool_b = batch_grid_subsampling(stacked_points, stack_lengths, sampleDl=dl)
 
                 # Radius of pooled neighbors
                 if "deformable" in block:
-                    r = r_normal * self.config.deform_radius / self.config.conv_radius
+                    r = (
+                        r_normal
+                        * self.config["train"]["batch_num"]
+                        / self.config["kpconv"]["conv_radius"]
+                    )
                     deform_layer = True
                 else:
                     r = r_normal

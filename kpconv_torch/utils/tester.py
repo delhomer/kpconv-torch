@@ -433,7 +433,9 @@ class ModelTester:
                         write_ply(test_name, [points, preds], ["x", "y", "z", "preds"])
                         test_name2 = os.path.join(self.test_path, "probs", cloud_name)
                         prob_names = [
-                            "_".join(test_loader.dataset.label_to_names[label].split())
+                            "_".join(
+                                test_loader.dataset.config["model"]["label_to_names"][label].split()
+                            )
                             for label in test_loader.dataset.label_values
                         ]
                         write_ply(
@@ -661,7 +663,7 @@ class ModelTester:
                                 self.test_path, folder, filename[:-4] + "_probs.ply"
                             )
                             lbl_names = [
-                                test_loader.dataset.label_to_names[label_value]
+                                test_loader.dataset.config["model"]["label_to_names"][label_value]
                                 for label_value in test_loader.dataset.label_values
                                 if label_value not in test_loader.dataset.ignored_labels
                             ]

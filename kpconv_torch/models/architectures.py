@@ -279,7 +279,7 @@ class KPFCNN(nn.Module):
         self.deform_fitting_mode = config["kpconv"]["deform_fitting_power"]
         self.deform_fitting_power = config["kpconv"]["deform_fitting_power"]
         self.deform_lr_factor = config["kpconv"]["deform_lr_factor"]
-        self.repulse_extent = self.config["kpconv"]["KP_extent"]
+        self.repulse_extent = config["kpconv"]["KP_extent"]
         self.output_loss = 0
         self.reg_loss = 0
         self.l1 = nn.L1Loss()

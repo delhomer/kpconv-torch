@@ -141,7 +141,7 @@ class KPConv(nn.Module):
         :param out_channels: dimension of output features.
         :param KP_extent: influence radius of each kernel point.
         :param radius: radius used for kernel point init. Even for deformable, use the
-        config.conv_radius
+        config["kpconv"]["conv_radius"]
         :param fixed_kernel_points: fix position of certain kernel points ('none', 'center' or
         'verticals').
         :param KP_influence: influence function of the kernel points ('constant', 'linear',

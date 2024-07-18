@@ -19,7 +19,7 @@ class Toronto3DDataset(PointCloudDataset):
 
     def __init__(
         self,
-        config_file_path,
+        config,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -30,9 +30,8 @@ class Toronto3DDataset(PointCloudDataset):
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
         super().__init__(
-            config_file_path=config_file_path,
+            config=config,
             datapath=datapath,
-            dataset="Toronto3D",
             chosen_log=chosen_log,
             infered_file=infered_file,
             task=task,
@@ -42,26 +41,10 @@ class Toronto3DDataset(PointCloudDataset):
         # Parameters
         ############
 
-        # Dict from labels to names
-        self.label_to_names = {
-            0: "Unclassified",
-            1: "Road",
-            2: "Road_markings",
-            3: "Natural",
-            4: "Building",
-            5: "Utility_line",
-            6: "Pole",
-            7: "Car",
-            8: "Fence",
-        }
-
-        # Initialize a bunch of variables concerning class labels
-        self.init_labels()
-
         # List of classes ignored during training (can be empty)
         self.ignored_labels = np.array([0])
 
-        # Update number of class and data task in configuration
+        # Update number of class and data task in self.configuration
         self.config["input"]["num_classes"] = self.num_classes - len(self.ignored_labels)
 
         # Path of the training files
@@ -214,11 +197,11 @@ class Toronto3DDataset(PointCloudDataset):
         """
 
         if self.config["input"]["use_potentials"]:
-            return self.potential_item(batch_i)
+            return self.potential_item()
         else:
             return self.random_item(batch_i)
 
-    def potential_item(self, batch_i, debug_workers=False):
+    def potential_item(self, debug_workers=False):
 
         t = [time.time()]
 
@@ -784,7 +767,7 @@ class Toronto3DDataset(PointCloudDataset):
             # Restart timer
             t0 = time.time()
 
-            pot_dl = self.config.in_radius / 10
+            pot_dl = self.config["input"]["in_radius"] / 10
 
             for file_idx, _ in enumerate(self.files):
 
@@ -888,9 +871,9 @@ class Toronto3DSampler(Sampler):
 
         # Number of step per epoch
         if dataset.task == "train":
-            self.N = dataset.config.epoch_steps
+            self.N = dataset.self.config["train"]["epoch_steps"]
         else:
-            self.N = dataset.config.validation_size
+            self.N = dataset.self.config.validation_size
 
         return
 
@@ -910,8 +893,8 @@ class Toronto3DSampler(Sampler):
             all_epoch_inds = np.zeros((2, 0), dtype=np.int64)
 
             # Number of sphere centers taken per class in each cloud
-            num_centers = self.N * self.dataset.config.batch_num
-            random_pick_n = int(np.ceil(num_centers / self.dataset.config.num_classes))
+            num_centers = self.N * self.dataset.config["train"]["batch_num"]
+            random_pick_n = int(np.ceil(num_centers / self.dataset.config["input"]["num_classes"]))
 
             # Choose random points of each class for each cloud
             for label_ind, label in enumerate(self.dataset.label_values):
@@ -997,7 +980,7 @@ class Toronto3DSampler(Sampler):
 
         # Estimated average batch size and target value
         estim_b = 0
-        target_b = self.dataset.config.batch_num
+        target_b = self.dataset.config["train"]["batch_num"]
 
         # Calibration parameters
         low_pass_T = 10
@@ -1109,7 +1092,8 @@ class Toronto3DSampler(Sampler):
             sampler_method = "random"
         t1 = self.dataset.config["input"]["in_radius"]
         t2 = self.dataset.config["kpconv"]["first_subsampling_dl"]
-        key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_{self.dataset.config.batch_num:d}"
+        t3 = self.dataset.config["train"]["batch_num"]
+        key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_{t3:d}"
         if not redo and key in batch_lim_dict:
             self.dataset.batch_limit[0] = batch_lim_dict[key]
         else:
@@ -1139,31 +1123,31 @@ class Toronto3DSampler(Sampler):
 
         # Check if the limit associated with current parameters exists (for each layer)
         neighb_limits = []
-        for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+        for layer_ind in range(self.dataset.num_layers):
 
             dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.deform_layers[layer_ind]:
-                r = dl * self.dataset.config.deform_radius
+                r = dl * self.dataset.config["train"]["batch_num"]
             else:
-                r = dl * self.dataset.config.conv_radius
+                r = dl * self.dataset.config["kpconv"]["conv_radius"]
 
             key = f"{dl:.3f}_{r:.3f}"
             if key in neighb_lim_dict:
                 neighb_limits += [neighb_lim_dict[key]]
 
-        if not redo and len(neighb_limits) == self.dataset.config["model"]["num_layers"]:
+        if not redo and len(neighb_limits) == self.dataset.num_layers:
             self.dataset.neighborhood_limits = neighb_limits
         else:
             redo = True
 
         if verbose:
             print("Check neighbors limit dictionary")
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
+            for layer_ind in range(self.dataset.self.num_layers):
+                dl = self.dataset.self.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.config.deform_radius
+                    r = dl * self.dataset.self.config["kpconv"]["deform_radius"]
                 else:
-                    r = dl * self.dataset.config.conv_radius
+                    r = dl * self.dataset.self.config["kpconv"]["conv_radius"]
                 key = f"{dl:.3f}_{r:.3f}"
 
                 if key in neighb_lim_dict:
@@ -1180,13 +1164,13 @@ class Toronto3DSampler(Sampler):
             # Neighbors calib parameters
             ############################
 
-            # From config parameter, compute higher bound of neighbors number in a neighborhood
-            hist_n = int(np.ceil(4 / 3 * np.pi * (self.dataset.config.deform_radius + 1) ** 3))
+            # From self.config parameter, compute higher bound of neighbors number in a neighborhood
+            hist_n = int(
+                np.ceil(4 / 3 * np.pi * (self.dataset.config["kpconv"]["deform_radius"] + 1) ** 3)
+            )
 
             # Histogram of neighborhood sizes
-            neighb_hists = np.zeros(
-                (self.dataset.config["model"]["num_layers"], hist_n), dtype=np.int32
-            )
+            neighb_hists = np.zeros((self.dataset.num_layers, hist_n), dtype=np.int32)
 
             ########################
             # Batch calib parameters
@@ -1194,7 +1178,7 @@ class Toronto3DSampler(Sampler):
 
             # Estimated average batch size and target value
             estim_b = 0
-            target_b = self.dataset.config.batch_num
+            target_b = self.dataset.config["train"]["batch_num"]
 
             # Expected batch size order of magnitude
             expected_N = 100000
@@ -1341,13 +1325,13 @@ class Toronto3DSampler(Sampler):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
                         if neighb_size > percentiles[layer]:
-                            color = self.dataset.config["colors"]["fail"]
+                            color = self.dataset.self.config["colors"]["fail"]
                         else:
-                            color = self.dataset.config["colors"]["okgreen"]
+                            color = self.dataset.self.config["colors"]["okgreen"]
                         line0 += "|{:}{:10d}{:}  ".format(
                             color,
                             neighb_hists[layer, neighb_size],
-                            self.dataset.config["colors"]["endc"],
+                            self.dataset.self.config["colors"]["endc"],
                         )
 
                     print(line0)
@@ -1357,25 +1341,25 @@ class Toronto3DSampler(Sampler):
                 print()
 
             # Save batch_limit dictionary
-            if self.dataset.config["input"]["use_potentials"]:
+            if self.dataset.self.config["input"]["use_potentials"]:
                 sampler_method = "potentials"
             else:
                 sampler_method = "random"
-            t = self.dataset.config["kpconv"]["in_radius"]
-            t1 = self.dataset.config["kpconv"]["first_subsampling_dl"]
-            t2 = self.dataset.config["train"]["batch_num"]
+            t = self.dataset.self.config["kpconv"]["in_radius"]
+            t1 = self.dataset.self.config["kpconv"]["first_subsampling_dl"]
+            t2 = self.dataset.self.config["train"]["batch_num"]
             key = f"{sampler_method}_{t:3f}_" f"{t1:3f}_{t2:d}"
             batch_lim_dict[key] = float(self.dataset.batch_limit)
             with open(batch_lim_file, "wb") as file:
                 pickle.dump(batch_lim_dict, file)
 
             # Save neighb_limit dictionary
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
-                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
+            for layer_ind in range(self.dataset.self.num_layers):
+                dl = self.dataset.self.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.config.deform_radius
+                    r = dl * self.dataset.self.config["train"]["batch_num"]
                 else:
-                    r = dl * self.dataset.config.conv_radius
+                    r = dl * self.dataset.self.config["kpconv"]["conv_radius"]
                 key = f"{dl:.3f}_{r:.3f}"
                 neighb_lim_dict[key] = self.dataset.neighborhood_limits[layer_ind]
             with open(neighb_lim_file, "wb") as file:
@@ -1568,7 +1552,7 @@ def debug_timing(dataset, loader):
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
-    estim_b = dataset.config.batch_num
+    estim_b = dataset.self.config["train"]["batch_num"]
     estim_N = 0
 
     for _ in range(10):

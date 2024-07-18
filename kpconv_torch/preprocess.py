@@ -16,6 +16,8 @@ from kpconv_torch.datasets.Toronto3D import (
     Toronto3DDataset,
 )
 
+from kpconv_torch.utils.config import load_config
+
 
 def main(args):
     preprocess(args.datapath, args.dataset)
@@ -32,34 +34,45 @@ def preprocess(datapath: Path, dataset: str) -> None:
     print("Data Preparation")
     print("****************")
 
+    config_file_path = "config.yml"
+
+    # Test if the provided dataset (passed to the -d option)
+    # corresponds to the one of the config file to use
+    config = load_config(config_file_path, dataset)
+    if config["dataset"] != dataset:
+        t1 = config["model"]["dataset"]
+        raise ValueError(
+            f"Trained model dataset ({t1}) " f"does not match provided dataset ({dataset})."
+        )
+
     # Initialize datasets
     if dataset == "ModelNet40":
         # Training
-        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, task="train")
+        _ = ModelNet40Dataset(config=config, datapath=datapath, task="train")
         # Validation
-        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, task="validate")
+        _ = ModelNet40Dataset(config=config, datapath=datapath, task="validate")
     elif dataset == "NPM3D":
         # Training
-        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, task="train")
+        _ = NPM3DDataset(config=config, datapath=datapath, task="train")
         # Validation
-        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, task="validate")
+        _ = NPM3DDataset(config=config, datapath=datapath, task="validate")
     elif dataset == "S3DIS":
         # Training
-        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, task="train")
+        _ = S3DISDataset(config=config, datapath=datapath, task="train")
         # Validation
-        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, task="validate")
+        _ = S3DISDataset(config=config, datapath=datapath, task="validate")
     elif dataset == "SemanticKitti":
         # Training
-        _ = SemanticKittiDataset(config_file_path="config.yml", datapath=datapath, task="train")
+        _ = SemanticKittiDataset(config=config, datapath=datapath, task="train")
         # Validation
         _ = SemanticKittiDataset(
-            config_file_path="config.yml",
+            config=config,
             datapath=datapath,
             task="validate",
             balance_classes=False,
         )
     elif dataset == "Toronto3D":
         # Training
-        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, task="train")
+        _ = Toronto3DDataset(config=config, datapath=datapath, task="train")
         # Validation
-        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, task="validate")
+        _ = Toronto3DDataset(config=config, datapath=datapath, task="validate")

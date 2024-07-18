@@ -76,24 +76,27 @@ def train(
 
     train_save_path = get_train_save_path(output_dir, chosen_log)
 
+    if chosen_log is not None:
+        config_file_path = Path(train_save_path / "config.yml")
+    else:
+        config_file_path = "config.yml"
+
     # Test if the provided dataset (passed to the -d option)
-    # corresponds to the one of the trained model (passed to the -l option)
-    if chosen_log:
-        config = load_config(Path(train_save_path / "config.yml"), dataset)
-        if config["model"]["dataset"] != dataset:
-            t1 = config["model"]["dataset"]
-            raise ValueError(
-                f"Trained model dataset ({t1}) " f"does not match provided dataset ({dataset})."
-            )
-        chosen_log = None
+    # corresponds to the one of the config file to use
+    config = load_config(config_file_path, dataset)
+    if config["dataset"] != dataset:
+        t1 = config["model"]["dataset"]
+        raise ValueError(
+            f"Trained model dataset ({t1}) " f"does not match provided dataset ({dataset})."
+        )
 
     # Initialize datasets and samplers
     if dataset == "ModelNet40":
         train_dataset = ModelNet40Dataset(
-            config_file_path="config.yml", datapath=datapath, chosen_log=chosen_log, task="train"
+            config=config, datapath=datapath, chosen_log=chosen_log, task="train"
         )
         test_dataset = ModelNet40Dataset(
-            config_file_path="config.yml",
+            config=config,
             datapath=datapath,
             chosen_log=chosen_log,
             task="validate",
@@ -103,10 +106,10 @@ def train(
         collate_fn = ModelNet40Collate
     elif dataset == "NPM3D":
         train_dataset = NPM3DDataset(
-            config_file_path="config.yml", datapath=datapath, chosen_log=chosen_log, task="train"
+            config=config, datapath=datapath, chosen_log=chosen_log, task="train"
         )
         test_dataset = NPM3DDataset(
-            config_file_path="config.yml",
+            config=config,
             datapath=datapath,
             chosen_log=chosen_log,
             task="validate",
@@ -116,10 +119,10 @@ def train(
         collate_fn = NPM3DCollate
     elif dataset == "S3DIS":
         train_dataset = S3DISDataset(
-            config_file_path="config.yml", datapath=datapath, chosen_log=chosen_log, task="train"
+            config=config, datapath=datapath, chosen_log=chosen_log, task="train"
         )
         test_dataset = S3DISDataset(
-            config_file_path="config.yml",
+            config=config,
             datapath=datapath,
             chosen_log=chosen_log,
             task="validate",
@@ -164,7 +167,7 @@ def train(
         batch_size=1,
         sampler=train_sampler,
         collate_fn=collate_fn,
-        num_workers=config["model"]["input_threads"],
+        num_workers=config["input"]["input_threads"],
         pin_memory=True,
     )
     test_loader = DataLoader(
@@ -172,7 +175,7 @@ def train(
         batch_size=1,
         sampler=test_sampler,
         collate_fn=collate_fn,
-        num_workers=config["model"]["input_threads"],
+        num_workers=config["input"]["input_threads"],
         pin_memory=True,
     )
 

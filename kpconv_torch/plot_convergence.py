@@ -306,7 +306,7 @@ def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
     config = load_config(list_of_paths[0])
 
     class_list = [
-        dataset.label_to_names[label]
+        dataset.config["model"]["label_to_names"][label]
         for label in dataset.label_values
         if label not in dataset.ignored_labels
     ]

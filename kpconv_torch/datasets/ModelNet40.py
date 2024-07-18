@@ -15,7 +15,7 @@ class ModelNet40Dataset(PointCloudDataset):
 
     def __init__(
         self,
-        config_file_path,
+        config,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -26,9 +26,8 @@ class ModelNet40Dataset(PointCloudDataset):
         This dataset is small enough to be stored in-memory, so load all point clouds here
         """
         super().__init__(
-            config_file_path=config_file_path,
+            config=config,
             datapath=datapath,
-            dataset="ModelNet40",
             chosen_log=chosen_log,
             infered_file=infered_file,
             task=task,
@@ -38,14 +37,11 @@ class ModelNet40Dataset(PointCloudDataset):
         # Parameters
         ############
 
-        # Initialize a bunch of variables concerning class labels
-        self.init_labels()
-
         # List of classes ignored during training (can be empty)
         self.ignored_labels = np.array([])
 
         # Update number of class and data task in configuration
-        self.num_classes = self.config["input"]["num_classes"]
+        self.num_classes = config["input"]["num_classes"]
 
         # Number of models and models used per epoch
         if self.task == "train":
@@ -64,7 +60,7 @@ class ModelNet40Dataset(PointCloudDataset):
             self.num_models = 2468
             self.epoch_n = min(
                 self.num_models,
-                self.config["train"]["validation_size"] * self.dataset.config["train"]["batch_num"],
+                self.config["train"]["validation_size"] * self.config["train"]["batch_num"],
             )
 
         #############
@@ -137,9 +133,9 @@ class ModelNet40Dataset(PointCloudDataset):
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
+        if self.config["input"]["in_features_dim"] == 1:
             pass
-        elif self.config.in_features_dim == 4:
+        elif self.config["input"]["in_features_dim"] == 4:
             stacked_features = np.hstack((stacked_features, stacked_normals))
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
@@ -428,7 +424,7 @@ class ModelNet40Sampler(Sampler):
                 color = config["colors"]["okgreen"]
                 v = str(int(batch_lim_dict[key]))
             else:
-                color = self.config["colors"]["fail"]
+                color = config["colors"]["fail"]
                 v = "?"
             print(f'{color}"{key}": {v}{config["colors"]["endc"]}')
 
@@ -445,7 +441,7 @@ class ModelNet40Sampler(Sampler):
 
         # Check if the limit associated with current parameters exists (for each layer)
         neighb_limits = []
-        for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+        for layer_ind in range(self.dataset.num_layers):
 
             dl = self.dataset["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.deform_layers[layer_ind]:
@@ -464,7 +460,7 @@ class ModelNet40Sampler(Sampler):
 
         if verbose:
             print("Check neighbors limit dictionary")
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset["kpconv"]["deform_radius"]
@@ -491,9 +487,7 @@ class ModelNet40Sampler(Sampler):
             )
 
             # Histogram of neighborhood sizes
-            neighb_hists = np.zeros(
-                (self.dataset.config["model"]["num_layers"], hist_n), dtype=np.int32
-            )
+            neighb_hists = np.zeros((self.dataset.num_layers, hist_n), dtype=np.int32)
 
             ########################
             # Batch calib parameters
@@ -592,11 +586,11 @@ class ModelNet40Sampler(Sampler):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
                         if neighb_size > percentiles[layer]:
-                            color = self.config["colors"]["fail"]
+                            color = config["colors"]["fail"]
                         else:
-                            color = self.config["colors"]["okgreen"]
+                            color = config["colors"]["okgreen"]
                         line0 += "|{:}{:10d}{:}  ".format(
-                            color, neighb_hists[layer, neighb_size], self.config["colors"]["endc"]
+                            color, neighb_hists[layer, neighb_size], config["colors"]["endc"]
                         )
                     print(line0)
 
@@ -614,12 +608,12 @@ class ModelNet40Sampler(Sampler):
                 pickle.dump(batch_lim_dict, file)
 
             # Save neighb_limit dictionary
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.config.deform_radius
+                    r = dl * self.dataset.config["train"]["batch_num"]
                 else:
-                    r = dl * self.dataset.config.conv_radius
+                    r = dl * self.dataset.config["kpconv"]["conv_radius"]
                 key = f"{dl:.3f}_{r:.3f}"
                 neighb_lim_dict[key] = self.dataset.neighborhood_limits[layer_ind]
             with open(neighb_lim_file, "wb") as file:
@@ -784,7 +778,7 @@ def debug_timing(dataset, sampler, loader):
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
-    estim_b = dataset.config.batch_num
+    estim_b = dataset.config["train"]["batch_num"]
 
     for _ in range(10):
 

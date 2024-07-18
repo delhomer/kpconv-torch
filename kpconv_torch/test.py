@@ -172,7 +172,7 @@ def test(
         batch_size=1,
         sampler=test_sampler,
         collate_fn=collate_fn,
-        num_workers=config["model"]["input_threads"],
+        num_workers=config["input"]["input_threads"],
         pin_memory=True,
     )
 

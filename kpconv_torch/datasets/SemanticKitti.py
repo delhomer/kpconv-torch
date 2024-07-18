@@ -2,7 +2,6 @@ from multiprocessing import Lock
 import os
 import pickle
 import time
-import yaml
 
 import numpy as np
 from sklearn.neighbors import KDTree
@@ -17,7 +16,7 @@ class SemanticKittiDataset(PointCloudDataset):
 
     def __init__(
         self,
-        config_file_path,
+        config,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -25,9 +24,8 @@ class SemanticKittiDataset(PointCloudDataset):
         task="train",
     ):
         super().__init__(
-            config_file_path=config_file_path,
+            config=config,
             datapath=datapath,
-            dataset="SemanticKitti",
             chosen_log=chosen_log,
             infered_file=infered_file,
             task=task,
@@ -57,43 +55,29 @@ class SemanticKittiDataset(PointCloudDataset):
         ###########################
         # Object classes parameters
         ###########################
-
-        # Read labels
-        if self.config["kpconv"]["n_frames"] == 1:
-            config_file = os.path.join(self.datapath, "semantic-kitti.yaml")
-        elif self.config["kpconv"]["n_frames"] > 1:
-            config_file = os.path.join(self.datapath, "semantic-kitti-all.yaml")
-        else:
+        if self.config["kpconv"]["n_frames"] < 1:
             raise ValueError("number of frames has to be >= 1")
 
-        with open(config_file) as stream:
-            doc = yaml.safe_load(stream)
-            all_labels = doc["labels"]
-            learning_map_inv = doc["learning_map_inv"]
-            learning_map = doc["learning_map"]
-            self.learning_map = np.zeros((max(learning_map) + 1), dtype=np.int32)
-            for k, v in learning_map.items():
-                self.learning_map[k] = v
+        # Read labels
+        all_labels = self.config["specific"]["labels"]
+        learning_map_inv = self.config["specific"]["learning_map_inv"]
+        learning_map = self.config["specific"]["learning_map"]
 
-            self.learning_map_inv = np.zeros((max(learning_map_inv) + 1), dtype=np.int32)
-            for k, v in learning_map_inv.items():
-                self.learning_map_inv[k] = v
+        self.learning_map = np.zeros((max(learning_map) + 1), dtype=np.int32)
+        for k, v in learning_map.items():
+            self.learning_map[k] = v
+
+        self.learning_map_inv = np.zeros((max(learning_map_inv) + 1), dtype=np.int32)
+        for k, v in learning_map_inv.items():
+            self.learning_map_inv[k] = v
 
         # Dict from labels to names
-        self.label_to_names = {k: all_labels[v] for k, v in learning_map_inv.items()}
-
-        # Initiate a bunch of variables concerning class labels
-        self.init_labels()
+        self.config["model"]["label_to_names"] = {
+            k: all_labels[v] for k, v in learning_map_inv.items()
+        }
 
         # List of classes ignored during training (can be empty)
         self.ignored_labels = np.sort([0])
-
-        ##################
-        # Other parameters
-        ##################
-
-        # Update number of class and data task in configuration
-        self.config.num_classes = self.num_classes
 
         ##################
         # Load calibration
@@ -128,19 +112,19 @@ class SemanticKittiDataset(PointCloudDataset):
 
         # Choose batch_num in_R and max_in_p depending on validation or training
         if self.task == "train":
-            self.batch_num = self.config["train"]["batch_num"]
-            self.max_in_p = self.config["kpconv"]["max_in_points"]
-            self.in_R = self.config["input"]["in_radius"]
+            self.batch_num = config["train"]["batch_num"]
+            self.max_in_p = config["kpconv"]["max_in_points"]
+            self.in_R = config["input"]["in_radius"]
         else:
-            self.batch_num = self.config["train"]["val_batch_num"]
-            self.max_in_p = self.config["kpconv"]["max_val_points"]
-            self.in_R = self.config["kpconv"]["val_radius"]
+            self.batch_num = config["train"]["val_batch_num"]
+            self.max_in_p = config["kpconv"]["max_val_points"]
+            self.in_R = config["kpconv"]["val_radius"]
 
         # shared epoch indices and classes (in case we want class balanced sampler)
         if self.task == "train":
-            N = int(np.ceil(self.config.epoch_steps * self.batch_num * 1.1))
+            N = int(np.ceil(config["train"]["epoch_steps"] * self.batch_num * 1.1))
         else:
-            N = int(np.ceil(self.config.validation_size * self.batch_num * 1.1))
+            N = int(np.ceil(config.validation_size * self.batch_num * 1.1))
         self.epoch_i = torch.from_numpy(np.zeros((1,), dtype=np.int64))
         self.epoch_inds = torch.from_numpy(np.zeros((N,), dtype=np.int64))
         self.epoch_labels = torch.from_numpy(np.zeros((N,), dtype=np.int32))
@@ -149,7 +133,7 @@ class SemanticKittiDataset(PointCloudDataset):
         self.epoch_labels.share_memory_()
 
         self.worker_waiting = torch.tensor(
-            [0 for _ in range(self.config["input"]["input_threads"])], dtype=torch.int32
+            [0 for _ in range(config["input"]["input_threads"])], dtype=torch.int32
         )
         self.worker_waiting.share_memory_()
         self.worker_lock = Lock()
@@ -281,7 +265,7 @@ class SemanticKittiDataset(PointCloudDataset):
                         wanted_ind = np.random.choice(new_points.shape[0])
                     p0 = new_points[wanted_ind, :3]
 
-                # Eliminate points further than config.in_radius
+                # Eliminate points further than config["input"]["in_radius"]
                 mask = np.sum(np.square(new_points[:, :3] - p0), axis=1) < self.in_R**2
                 mask_inds = np.where(mask)[0].astype(np.int32)
 
@@ -362,7 +346,7 @@ class SemanticKittiDataset(PointCloudDataset):
             t += [time.time()]
 
             # Color augmentation
-            if np.random.rand() > self.config.augment_color:
+            if np.random.rand() > self.config["train"]["augment_color"]:
                 in_fts[:, 3:] *= 0
 
             # Stack batch
@@ -401,18 +385,18 @@ class SemanticKittiDataset(PointCloudDataset):
 
         # Input features (Use reflectance, input height or all coordinates)
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
+        if self.config["input"]["in_features_dim"] == 1:
             pass
-        elif self.config.in_features_dim == 2:
+        elif self.config["input"]["in_features_dim"] == 2:
             # Use original height coordinate
             stacked_features = np.hstack((stacked_features, features[:, 2:3]))
-        elif self.config.in_features_dim == 3:
+        elif self.config["input"]["in_features_dim"] == 3:
             # Use height + reflectance
             stacked_features = np.hstack((stacked_features, features[:, 2:]))
-        elif self.config.in_features_dim == 4:
+        elif self.config["input"]["in_features_dim"] == 4:
             # Use all coordinates
             stacked_features = np.hstack((stacked_features, features[:3]))
-        elif self.config.in_features_dim == 5:
+        elif self.config["input"]["in_features_dim"] == 5:
             # Use all coordinates + reflectance
             stacked_features = np.hstack((stacked_features, features))
         else:
@@ -913,12 +897,12 @@ class SemanticKittiSampler(Sampler):
             print("\nPrevious calibration found:")
             print("Check max_in limit dictionary")
             if key in max_in_lim_dict:
-                color = self.config["colors"]["okgreen"]
+                color = config["colors"]["okgreen"]
                 v = str(int(max_in_lim_dict[key]))
             else:
-                color = self.config["colors"]["fail"]
+                color = config["colors"]["fail"]
                 v = "?"
-            print(f'{color}"{key}": {v}{self.config["colors"]["endc"]}')
+            print(f'{color}"{key}": {v}{config["colors"]["endc"]}')
 
         if redo:
 
@@ -1057,31 +1041,31 @@ class SemanticKittiSampler(Sampler):
 
         # Check if the limit associated with current parameters exists (for each layer)
         neighb_limits = []
-        for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+        for layer_ind in range(self.dataset.num_layers):
 
             dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.config.deform_layers[layer_ind]:
-                r = dl * self.dataset.config.deform_radius
+                r = dl * self.dataset.config["train"]["batch_num"]
             else:
-                r = dl * self.dataset.config.conv_radius
+                r = dl * self.dataset.config["kpconv"]["conv_radius"]
 
             key = f"{sampler_method}_{self.dataset.max_in_p:d}_{dl:.3f}_{r:.3f}"
             if key in neighb_lim_dict:
                 neighb_limits += [neighb_lim_dict[key]]
 
-        if not redo and len(neighb_limits) == self.dataset.config["model"]["num_layers"]:
+        if not redo and len(neighb_limits) == self.dataset.num_layers:
             self.dataset.neighborhood_limits = neighb_limits
         else:
             redo = True
 
         if verbose:
             print("Check neighbors limit dictionary")
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.config.deform_radius
+                    r = dl * self.dataset.config["train"]["batch_num"]
                 else:
-                    r = dl * self.dataset.config.conv_radius
+                    r = dl * self.dataset.config["kpconv"]["conv_radius"]
                 key = f"{sampler_method}_{self.dataset.max_in_p:d}_{dl:3f}_{r:3f}"
 
                 if key in neighb_lim_dict:
@@ -1099,12 +1083,12 @@ class SemanticKittiSampler(Sampler):
             ############################
 
             # From config parameter, compute higher bound of neighbors number in a neighborhood
-            hist_n = int(np.ceil(4 / 3 * np.pi * (self.dataset.config.deform_radius + 1) ** 3))
+            hist_n = int(
+                np.ceil(4 / 3 * np.pi * (self.dataset.config["train"]["batch_num"] + 1) ** 3)
+            )
 
             # Histogram of neighborhood sizes
-            neighb_hists = np.zeros(
-                (self.dataset.config["model"]["num_layers"], hist_n), dtype=np.int32
-            )
+            neighb_hists = np.zeros((self.dataset.num_layers, hist_n), dtype=np.int32)
 
             ########################
             # Batch calib parameters
@@ -1251,12 +1235,12 @@ class SemanticKittiSampler(Sampler):
                 pickle.dump(batch_lim_dict, file)
 
             # Save neighb_limit dictionary
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.config.deform_radius
+                    r = dl * self.dataset.config["train"]["batch_num"]
                 else:
-                    r = dl * self.dataset.config.conv_radius
+                    r = dl * self.dataset.config["kpconv"]["conv_radius"]
                 key = f"{sampler_method}_{self.dataset.max_in_p:d}_{dl:.3f}_{r:.3f}"
                 neighb_lim_dict[key] = self.dataset.neighborhood_limits[layer_ind]
             with open(neighb_lim_file, "wb") as file:

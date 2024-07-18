@@ -23,7 +23,7 @@ class S3DISDataset(PointCloudDataset):
 
     def __init__(
         self,
-        config_file_path,
+        config,
         datapath,
         chosen_log=None,
         infered_file=None,
@@ -44,8 +44,7 @@ class S3DISDataset(PointCloudDataset):
         - task: operation type to realize, can be "all", "ERF", "train", "test", "validate"
         """
         super().__init__(
-            config_file_path=config_file_path,
-            dataset="S3DIS",
+            config=config,
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=infered_file,
@@ -55,10 +54,6 @@ class S3DISDataset(PointCloudDataset):
         ############
         # Parameters
         ############
-
-        # Initialize a bunch of variables concerning class labels
-        # (cf. parent PointCloudDataset class)
-        self.init_labels()
 
         # List of classes ignored during training (can be empty)
         self.ignored_labels = np.array([])
@@ -162,11 +157,11 @@ class S3DISDataset(PointCloudDataset):
         """
 
         if self.config["input"]["use_potentials"]:
-            return self.potential_item(batch_i)
+            return self.potential_item()
         else:
             return self.random_item(batch_i)
 
-    def potential_item(self, batch_i, debug_workers=False):
+    def potential_item(self, debug_workers=False):
 
         t = [time.time()]
 
@@ -239,12 +234,12 @@ class S3DISDataset(PointCloudDataset):
                 # Add a small noise to center point
                 if self.task != "ERF":
                     center_point += np.random.normal(
-                        scale=self.config.in_radius / 10, size=center_point.shape
+                        scale=self.config["input"]["in_radius"] / 10, size=center_point.shape
                     )
 
                 # Indices of points in input region
                 pot_inds, dists = self.pot_trees[cloud_ind].query_radius(
-                    center_point, r=self.config.in_radius, return_distance=True
+                    center_point, r=self.config["input"]["in_radius"], return_distance=True
                 )
 
                 d2s = np.square(dists[0])
@@ -252,8 +247,8 @@ class S3DISDataset(PointCloudDataset):
 
                 # Update potentials (Tukey weights)
                 if self.task != "ERF":
-                    tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
-                    tukeys[d2s > np.square(self.config.in_radius)] = 0
+                    tukeys = np.square(1 - d2s / np.square(self.config["input"]["in_radius"]))
+                    tukeys[d2s > np.square(self.config["input"]["in_radius"])] = 0
                     self.potentials[cloud_ind][pot_inds] += tukeys
                     min_ind = torch.argmin(self.potentials[cloud_ind])
                     self.min_potentials[[cloud_ind]] = self.potentials[cloud_ind][min_ind]
@@ -266,7 +261,7 @@ class S3DISDataset(PointCloudDataset):
 
             # Indices of points in input region
             input_inds = self.input_trees[cloud_ind].query_radius(
-                center_point, r=self.config.in_radius
+                center_point, r=self.config["input"]["in_radius"]
             )[0]
 
             t += [time.time()]
@@ -277,7 +272,7 @@ class S3DISDataset(PointCloudDataset):
             # Safe check for empty spheres
             if n < 2:
                 failed_attempts += 1
-                if failed_attempts > 100 * self.config.batch_num:
+                if failed_attempts > 100 * self.config["train"]["batch_num"]:
                     raise ValueError("It seems this dataset only contains empty input spheres")
                 t += [time.time()]
                 t += [time.time()]
@@ -298,7 +293,7 @@ class S3DISDataset(PointCloudDataset):
             input_points, scale, R = self.augmentation_transform(input_points)
 
             # Color augmentation
-            if np.random.rand() > self.config.augment_color:
+            if np.random.rand() > self.config["train"]["augment_color"]:
                 input_colors *= 0
 
             # Get original height as additional feature
@@ -341,11 +336,11 @@ class S3DISDataset(PointCloudDataset):
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
+        if self.config["input"]["in_features_dim"] == 1:
             pass
-        elif self.config.in_features_dim == 4:
+        elif self.config["input"]["in_features_dim"] == 4:
             stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
+        elif self.config["input"]["in_features_dim"] == 5:
             stacked_features = np.hstack((stacked_features, features))
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
@@ -479,12 +474,12 @@ class S3DISDataset(PointCloudDataset):
             # Add a small noise to center point
             if self.task != "ERF":
                 center_point += np.random.normal(
-                    scale=self.config.in_radius / 10, size=center_point.shape
+                    scale=self.config["input"]["in_radius"] / 10, size=center_point.shape
                 )
 
             # Indices of points in input region
             input_inds = self.input_trees[cloud_ind].query_radius(
-                center_point, r=self.config.in_radius
+                center_point, r=self.config["input"]["in_radius"]
             )[0]
 
             # Number collected
@@ -493,7 +488,7 @@ class S3DISDataset(PointCloudDataset):
             # Safe check for empty spheres
             if n < 2:
                 failed_attempts += 1
-                if failed_attempts > 100 * self.config.batch_num:
+                if failed_attempts > 100 * self.config["train"]["batch_num"]:
                     raise ValueError("It seems this dataset only contains empty input spheres")
                 continue
 
@@ -510,7 +505,7 @@ class S3DISDataset(PointCloudDataset):
             input_points, scale, R = self.augmentation_transform(input_points)
 
             # Color augmentation
-            if np.random.rand() > self.config.augment_color:
+            if np.random.rand() > self.config["train"]["augment_color"]:
                 input_colors *= 0
 
             # Get original height as additional feature
@@ -551,11 +546,11 @@ class S3DISDataset(PointCloudDataset):
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
-        if self.config.in_features_dim == 1:
+        if self.config["input"]["in_features_dim"] == 1:
             pass
-        elif self.config.in_features_dim == 4:
+        elif self.config["input"]["in_features_dim"] == 4:
             stacked_features = np.hstack((stacked_features, features[:, :3]))
-        elif self.config.in_features_dim == 5:
+        elif self.config["input"]["in_features_dim"] == 5:
             stacked_features = np.hstack((stacked_features, features))
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
@@ -742,7 +737,7 @@ class S3DISDataset(PointCloudDataset):
             # Subsample cloud
             sub_points = np.array(kdtree_data, copy=False)
             coarse_points = grid_subsampling(
-                sub_points.astype(np.float32), sampleDl=self.config.in_radius / 10
+                sub_points.astype(np.float32), sampleDl=self.config["input"]["in_radius"] / 10
             )
 
             # Get chosen neighborhoods
@@ -881,9 +876,9 @@ class S3DISSampler(Sampler):
 
         # Number of step per epoch
         if dataset.task == "train":
-            self.N = dataset.config.epoch_steps
+            self.N = dataset.config["train"]["epoch_steps"]
         else:
-            self.N = dataset.config.validation_size
+            self.N = dataset.config["train"]["validation_size"]
 
         return
 
@@ -893,7 +888,7 @@ class S3DISSampler(Sampler):
 
         """
 
-        if not self.config["input"]["use_potentials"]:
+        if not self.dataset.config["input"]["use_potentials"]:
 
             # Initiate current epoch ind
             self.dataset.epoch_i *= 0
@@ -903,7 +898,7 @@ class S3DISSampler(Sampler):
             all_epoch_inds = np.zeros((2, 0), dtype=np.int64)
 
             # Number of sphere centers taken per class in each cloud
-            num_centers = self.N * self.dataset.config.batch_num
+            num_centers = self.N * self.dataset.config["train"]["batch_num"]
             random_pick_n = int(np.ceil(num_centers / self.dataset.config.num_classes))
 
             # Choose random points of each class for each cloud
@@ -990,7 +985,7 @@ class S3DISSampler(Sampler):
 
         # Estimated average batch size and target value
         estim_b = 0
-        target_b = self.dataset.config.batch_num
+        target_b = self.dataset.config["train"]["batch_num"]
 
         # Calibration parameters
         low_pass_T = 10
@@ -1096,14 +1091,14 @@ class S3DISSampler(Sampler):
             batch_lim_dict = {}
 
         # Check if the batch limit associated with current parameters exists
-        if self.config["input"]["use_potentials"]:
+        if self.dataset.config["input"]["use_potentials"]:
             sampler_method = "potentials"
         else:
             sampler_method = "random"
 
-        t1 = self.config["input"]["in_radius"]
-        t2 = self.config["kpconv"]["first_subsampling_dl"]
-        t3 = self.config["train"]["batch_num"]
+        t1 = self.dataset.config["input"]["in_radius"]
+        t2 = self.dataset.config["kpconv"]["first_subsampling_dl"]
+        t3 = self.dataset.config["train"]["batch_num"]
 
         key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_{t3}"
         if not redo and key in batch_lim_dict:
@@ -1115,12 +1110,12 @@ class S3DISSampler(Sampler):
             print("\nPrevious calibration found:")
             print("Check batch limit dictionary")
             if key in batch_lim_dict:
-                color = self.config["colors"]["okgreen"]
+                color = self.dataset.config["colors"]["okgreen"]
                 v = str(int(batch_lim_dict[key]))
             else:
-                color = self.config["colors"]["fail"]
+                color = self.dataset.config["colors"]["fail"]
                 v = "?"
-            print(f'{color}"{key}": {v}{self.config["colors"]["endc"]}')
+            print(f'{color}"{key}": {v}{self.dataset.config["colors"]["endc"]}')
 
         # Neighbors limit
         # ***************
@@ -1135,40 +1130,40 @@ class S3DISSampler(Sampler):
 
         # Check if the limit associated with current parameters exists (for each layer)
         neighb_limits = []
-        for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+        for layer_ind in range(self.dataset.num_layers):
 
             dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.deform_layers[layer_ind]:
-                r = dl * self.dataset.config.deform_radius
+                r = dl * self.dataset.config["train"]["batch_num"]
             else:
-                r = dl * self.dataset.config.conv_radius
+                r = dl * self.dataset.config["kpconv"]["conv_radius"]
 
             key = f"{dl:.3f}_{r:.3f}"
             if key in neighb_lim_dict:
                 neighb_limits += [neighb_lim_dict[key]]
 
-        if not redo and len(neighb_limits) == self.dataset.config["model"]["num_layers"]:
+        if not redo and len(neighb_limits) == self.dataset.num_layers:
             self.dataset.neighborhood_limits = neighb_limits
         else:
             redo = True
 
         if verbose:
             print("Check neighbors limit dictionary")
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.config.deform_radius
+                    r = dl * self.dataset.config["train"]["batch_num"]
                 else:
-                    r = dl * self.dataset.config.conv_radius
+                    r = dl * self.dataset.config["kpconv"]["conv_radius"]
                 key = f"{dl:.3f}_{r:.3f}"
 
                 if key in neighb_lim_dict:
-                    color = self.config["colors"]["okgreen"]
+                    color = self.dataset.config["colors"]["okgreen"]
                     v = str(neighb_lim_dict[key])
                 else:
-                    color = self.config["colors"]["fail"]
+                    color = self.dataset.config["colors"]["fail"]
                     v = "?"
-                print(f'{color}"{key}": {v}{self.config["colors"]["endc"]}')
+                print(f'{color}"{key}": {v}{self.dataset.config["colors"]["endc"]}')
 
         if redo:
 
@@ -1177,12 +1172,12 @@ class S3DISSampler(Sampler):
             ############################
 
             # From config parameter, compute higher bound of neighbors number in a neighborhood
-            hist_n = int(np.ceil(4 / 3 * np.pi * (self.dataset.config.deform_radius + 1) ** 3))
+            hist_n = int(
+                np.ceil(4 / 3 * np.pi * (self.dataset.config["train"]["batch_num"] + 1) ** 3)
+            )
 
             # Histogram of neighborhood sizes
-            neighb_hists = np.zeros(
-                (self.dataset.config["model"]["num_layers"], hist_n), dtype=np.int32
-            )
+            neighb_hists = np.zeros((self.dataset.num_layers, hist_n), dtype=np.int32)
 
             ########################
             # Batch calib parameters
@@ -1190,7 +1185,7 @@ class S3DISSampler(Sampler):
 
             # Estimated average batch size and target value
             estim_b = 0
-            target_b = self.dataset.config.batch_num
+            target_b = self.dataset.config["train"]["batch_num"]
 
             # Expected batch size order of magnitude
             expected_N = 100000
@@ -1337,11 +1332,13 @@ class S3DISSampler(Sampler):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
                         if neighb_size > percentiles[layer]:
-                            color = self.config["colors"]["fail"]
+                            color = self.dataset.config["colors"]["fail"]
                         else:
-                            color = self.config["colors"]["okgreen"]
+                            color = self.dataset.config["colors"]["okgreen"]
                         line0 += "|{:}{:10d}{:}  ".format(
-                            color, neighb_hists[layer, neighb_size], self.config["colors"]["endc"]
+                            color,
+                            neighb_hists[layer, neighb_size],
+                            self.dataset.config["colors"]["endc"],
                         )
 
                     print(line0)
@@ -1351,26 +1348,26 @@ class S3DISSampler(Sampler):
                 print()
 
             # Save batch_limit dictionary
-            if self.config["input"]["use_potentials"]:
+            if self.dataset.config["input"]["use_potentials"]:
                 sampler_method = "potentials"
             else:
                 sampler_method = "random"
 
-            t1 = self.config["input"]["in_radius"]
-            t2 = self.config["kpconv"]["first_subsampling_dl"]
-            t3 = self.config["train"]["batch_num"]
+            t1 = self.dataset.config["input"]["in_radius"]
+            t2 = self.dataset.config["kpconv"]["first_subsampling_dl"]
+            t3 = self.dataset.config["train"]["batch_num"]
             key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_{t3:d}"
             batch_lim_dict[key] = float(self.dataset.batch_limit)
             with open(batch_lim_file, "wb") as file:
                 pickle.dump(batch_lim_dict, file)
 
             # Save neighb_limit dictionary
-            for layer_ind in range(self.dataset.config["model"]["num_layers"]):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.config.deform_radius
+                    r = dl * self.dataset.config["train"]["batch_num"]
                 else:
-                    r = dl * self.dataset.config.conv_radius
+                    r = dl * self.dataset.config["kpconv"]["conv_radius"]
                 key = f"{dl:.3f}_{r:.3f}"
                 neighb_lim_dict[key] = self.dataset.neighborhood_limits[layer_ind]
             with open(neighb_lim_file, "wb") as file:
@@ -1563,7 +1560,7 @@ def debug_timing(dataset, loader):
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
-    estim_b = dataset.config.batch_num
+    estim_b = dataset.config["train"]["batch_num"]
     estim_N = 0
 
     for _ in range(10):
