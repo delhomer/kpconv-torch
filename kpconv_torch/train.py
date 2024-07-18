@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
-import sys
 import time
+import sys
 
 from kpconv_torch.utils.config import load_config
 import numpy as np

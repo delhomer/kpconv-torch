@@ -883,7 +883,7 @@ class Toronto3DSampler(Sampler):
 
         # Dataset used by the sampler (no copy is made in memory)
         self.dataset = dataset
-        self.calibration_path = os.path.join(self.dataset.path, "calibration")
+        self.calibration_path = os.path.join(self.dataset.datapath, "calibration")
         os.makedirs(self.calibration_path, exist_ok=True)
 
         # Number of step per epoch

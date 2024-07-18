@@ -192,10 +192,7 @@ class PointCloudDataset(Dataset):
         Initialize parameters of the dataset here.
         """
         # Load configuration dictionary
-        self.config = load_config(config_file_path)
-
-        # Name of the dataset
-        self.name = dataset
+        self.config = load_config(config_file_path, dataset)
 
         self.label_to_names = {}
         self.num_classes = 0

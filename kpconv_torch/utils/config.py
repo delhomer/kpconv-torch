@@ -8,7 +8,7 @@ def save_config(train_save_path, config):
         yaml.dump(config, file_object)
 
 
-def load_config(file_path):
+def load_config(file_path, dataset):
     if file_path is None:
         file_path = "config.yml"
     else:
@@ -16,5 +16,9 @@ def load_config(file_path):
 
     with open(file_path) as file_object:
         config = yaml.load(file_object, Loader=yaml.SafeLoader)
+
+    if config["dataset"] != dataset:
+        t1 = config["model"]["dataset"]
+        raise ValueError(f"Config dataset ({t1}) " f"does not match provided dataset ({dataset}).")
 
     return config
