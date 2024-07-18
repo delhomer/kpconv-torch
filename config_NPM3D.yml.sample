@@ -58,6 +58,18 @@ model:
   first_features_dim: 128
   # Decide the mode of invariance
   invar_mode:
+  label_to_names = {
+    0: "unclassified",
+    1: "ground",
+    2: "building",
+    3: "pole",  # pole - road sign - traffic light
+    4: "bollard",  # bollard - small pole
+    5: "trash",  # trash can
+    6: "barrier",
+    7: "pedestrian",
+    8: "car",
+    9: "natural",  # natural - vegetation
+  }
   num_layers:
   # Do we need to save convergence
   saving: True

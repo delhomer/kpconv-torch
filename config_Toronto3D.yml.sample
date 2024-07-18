@@ -54,13 +54,25 @@ model:
   batch_norm_momentum: 0.02
   # Decide the mode of equivariance
   equivar_mode:
-  # Decide the mode of invariance
-  invar_mode:
   # Size of the first subsampling grid in meters
   # Dimension of the first feature maps
   first_features_dim: 128
+  # Decide the mode of invariance
+  invar_mode:
   # Radius of the input sphere (decrease value to reduce memory cost)
   in_radius: 3.0
+  # Dict from labels to names
+  label_to_names = {
+    0: "Unclassified",
+    1: "Road",
+    2: "Road_markings",
+    3: "Natural",
+    4: "Building",
+    5: "Utility_line",
+    6: "Pole",
+    7: "Car",
+    8: "Fence",
+  }
   num_layers:
   # Do we need to save convergence
   saving: True
