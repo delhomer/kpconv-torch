@@ -186,7 +186,7 @@ class PointCloudDataset(Dataset):
     """Parent class for Point Cloud Datasets."""
 
     def __init__(
-        self, config_file_path, datapath, dataset, chosen_log=None, infered_file=None, split="train"
+        self, config_file_path, datapath, dataset, chosen_log=None, infered_file=None, task="train"
     ):
         """
         Initialize parameters of the dataset here.
@@ -203,10 +203,10 @@ class PointCloudDataset(Dataset):
         self.neighborhood_limits = []
 
         # Training or test set
-        if split not in ["train", "validation", "test", "ERF", "all"]:
-            raise ValueError("Unknown set for the dataset: ", split)
+        if task not in ["train", "validation", "test", "ERF", "all"]:
+            raise ValueError("Unknown task for the dataset: ", task)
         else:
-            self.split = split
+            self.task = task
 
         self.datapath = datapath
 

@@ -24,7 +24,7 @@ class NPM3DDataset(PointCloudDataset):
         chosen_log=None,
         infered_file=None,
         load_data=True,
-        split="training",
+        task="training",
     ):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here
@@ -35,7 +35,7 @@ class NPM3DDataset(PointCloudDataset):
             dataset="NPM3D",
             chosen_log=chosen_log,
             infered_file=infered_file,
-            split=split,
+            task=task,
         )
 
         ############
@@ -82,20 +82,20 @@ class NPM3DDataset(PointCloudDataset):
             "ajaccio_57",
             "dijon_9",
         ]
-        self.all_splits = [0, 1, 2, 3, 4, 5, 6]
-        self.validation_split = 1
-        self.test_splits = [4, 5, 6]
-        self.train_splits = [0, 2, 3]
+        self.all_tasks = [0, 1, 2, 3, 4, 5, 6]
+        self.validation_task = 1
+        self.test_tasks = [4, 5, 6]
+        self.train_tasks = [0, 2, 3]
 
         # Number of models used per epoch
-        if self.split == "train":
+        if self.task == "train":
             self.epoch_n = self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
-        elif self.split in ["validation", "test", "ERF"]:
+        elif self.task in ["validation", "test", "ERF"]:
             self.epoch_n = (
                 self.config["train"]["validation_size"] * self.config["train"]["batch_num"]
             )
         else:
-            raise ValueError("Unknown set for NPM3D data: ", self.split)
+            raise ValueError("Unknown task for NPM3D data: ", self.task)
 
         # Stop data is not needed
         if not load_data:
@@ -114,32 +114,32 @@ class NPM3DDataset(PointCloudDataset):
         # List of training files
         self.files = []
         for i, f in enumerate(self.cloud_names):
-            if self.split == "train":
-                if self.all_splits[i] in self.train_splits:
+            if self.task == "train":
+                if self.all_tasks[i] in self.train_tasks:
                     self.files += [os.path.join(ply_path, f + ".ply")]
-            elif self.split in ["validation", "ERF"]:
-                if self.all_splits[i] == self.validation_split:
+            elif self.task in ["validation", "ERF"]:
+                if self.all_tasks[i] == self.validation_task:
                     self.files += [os.path.join(ply_path, f + ".ply")]
-            elif self.split == "test":
-                if self.all_splits[i] in self.test_splits:
+            elif self.task == "test":
+                if self.all_tasks[i] in self.test_tasks:
                     self.files += [os.path.join(ply_path, f + ".ply")]
             else:
-                raise ValueError("Unknown set for NPM3D data: ", self.split)
-        print("The set is " + str(self.split))
+                raise ValueError("Unknown task for NPM3D data: ", self.task)
+        print("The set is " + str(self.task))
 
-        if self.split == "train":
+        if self.task == "train":
             self.cloud_names = [
-                f for i, f in enumerate(self.cloud_names) if self.all_splits[i] in self.train_splits
+                f for i, f in enumerate(self.cloud_names) if self.all_tasks[i] in self.train_tasks
             ]
-        elif self.split in ["validation", "ERF"]:
+        elif self.task in ["validation", "ERF"]:
             self.cloud_names = [
                 f
                 for i, f in enumerate(self.cloud_names)
-                if self.all_splits[i] == self.validation_split
+                if self.all_tasks[i] == self.validation_task
             ]
-        elif self.split == "test":
+        elif self.task == "test":
             self.cloud_names = [
-                f for i, f in enumerate(self.cloud_names) if self.all_splits[i] in self.test_splits
+                f for i, f in enumerate(self.cloud_names) if self.all_tasks[i] in self.test_tasks
             ]
         print("The files are " + str(self.cloud_names))
 
@@ -206,7 +206,7 @@ class NPM3DDataset(PointCloudDataset):
         self.worker_lock = Lock()
 
         # For ERF visualization, we want only one cloud per batch and no randomness
-        if self.split == "ERF":
+        if self.task == "ERF":
             self.batch_limit = torch.tensor([1], dtype=torch.float32)
             self.batch_limit.share_memory_()
             np.random.seed(42)
@@ -301,7 +301,7 @@ class NPM3DDataset(PointCloudDataset):
                 center_point = pot_points[point_ind, :].reshape(1, -1)
 
                 # Add a small noise to center point
-                if self.split != "ERF":
+                if self.task != "ERF":
                     center_point += np.random.normal(
                         scale=self.config.in_radius / 10, size=center_point.shape
                     )
@@ -315,7 +315,7 @@ class NPM3DDataset(PointCloudDataset):
                 pot_inds = pot_inds[0]
 
                 # Update potentials (Tukey weights)
-                if self.split != "ERF":
+                if self.task != "ERF":
                     tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
                     tukeys[d2s > np.square(self.config.in_radius)] = 0
                     self.potentials[cloud_ind][pot_inds] += tukeys
@@ -349,7 +349,7 @@ class NPM3DDataset(PointCloudDataset):
 
             # Collect labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
-            if self.split in ["test", "ERF"]:
+            if self.task in ["test", "ERF"]:
                 input_labels = np.zeros(input_points.shape[0])
             else:
                 input_labels = self.input_labels[cloud_ind][input_inds]
@@ -534,7 +534,7 @@ class NPM3DDataset(PointCloudDataset):
             center_point = points[point_ind, :].reshape(1, -1)
 
             # Add a small noise to center point
-            if self.split != "ERF":
+            if self.task != "ERF":
                 center_point += np.random.normal(
                     scale=self.config.in_radius / 10, size=center_point.shape
                 )
@@ -556,7 +556,7 @@ class NPM3DDataset(PointCloudDataset):
 
             # Collect labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
-            if self.split in ["test", "ERF"]:
+            if self.task in ["test", "ERF"]:
                 input_labels = np.zeros(input_points.shape[0])
             else:
                 input_labels = self.input_labels[cloud_ind][input_inds]
@@ -737,7 +737,7 @@ class NPM3DDataset(PointCloudDataset):
                 points = np.vstack((data["x"], data["y"], data["z"])).T
 
                 # Fake labels for test data
-                if self.split == "test":
+                if self.task == "test":
                     labels = np.zeros((data.shape[0],), dtype=np.int32)
                 else:
                     labels = data["classification"]
@@ -815,7 +815,7 @@ class NPM3DDataset(PointCloudDataset):
         self.num_clouds = len(self.input_trees)
 
         # Only necessary for validation and test sets
-        if self.split in ["validation", "test"]:
+        if self.task in ["validation", "test"]:
 
             print("\nPreparing reprojection indices for testing")
 
@@ -840,7 +840,7 @@ class NPM3DDataset(PointCloudDataset):
                     points = np.vstack((data["x"], data["y"], data["z"])).T
 
                     # Fake labels
-                    if self.split == "test":
+                    if self.task == "test":
                         labels = np.zeros((data.shape[0],), dtype=np.int32)
                     else:
                         labels = data["classification"]
@@ -862,7 +862,7 @@ class NPM3DDataset(PointCloudDataset):
 
     def load_evaluation_points(self, file_path):
         """
-        Load points (from test or validation split) on which the metrics should be evaluated
+        Load points (from test or validation task) on which the metrics should be evaluated
         """
 
         # Get original points
@@ -878,11 +878,11 @@ class NPM3DSampler(Sampler):
 
         # Dataset used by the sampler (no copy is made in memory)
         self.dataset = dataset
-        self.calibration_path = os.path.join(self.dataset.path, "calibration")
+        self.calibration_path = os.path.join(self.dataset.datapath, "calibration")
         os.makedirs(self.calibration_path, exist_ok=True)
 
         # Number of step per epoch
-        if dataset.set == "train":
+        if dataset.task == "train":
             self.N = dataset.config.epoch_steps
         else:
             self.N = dataset.config.validation_size

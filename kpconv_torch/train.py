@@ -1,7 +1,6 @@
 from pathlib import Path
 import os
 import time
-import sys
 
 from kpconv_torch.utils.config import load_config
 import numpy as np
@@ -74,48 +73,56 @@ def train(
     print()
     print("Data Preparation")
     print("****************")
+
     train_save_path = get_train_save_path(output_dir, chosen_log)
 
+    # Test if the provided dataset (passed to the -d option)
+    # corresponds to the one of the trained model (passed to the -l option)
     if chosen_log:
-        config = load_config(train_save_path)
+        config = load_config(Path(train_save_path / "config.yml"), dataset)
         if config["model"]["dataset"] != dataset:
             t1 = config["model"]["dataset"]
             raise ValueError(
-                f"Config dataset ({t1}) " f"does not match provided dataset ({dataset})."
+                f"Trained model dataset ({t1}) " f"does not match provided dataset ({dataset})."
             )
         chosen_log = None
-
-    # Get path from argument if given
-    if len(sys.argv) > 1:
-        chosen_log = sys.argv[1]
 
     # Initialize datasets and samplers
     if dataset == "ModelNet40":
         train_dataset = ModelNet40Dataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, split="train"
+            config_file_path="config.yml", datapath=datapath, chosen_log=chosen_log, task="train"
         )
         test_dataset = ModelNet40Dataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, split="validation"
+            config_file_path="config.yml",
+            datapath=datapath,
+            chosen_log=chosen_log,
+            task="validation",
         )
         train_sampler = ModelNet40Sampler(train_dataset, balance_labels=True)
         test_sampler = ModelNet40Sampler(test_dataset, balance_labels=True)
         collate_fn = ModelNet40Collate
     elif dataset == "NPM3D":
         train_dataset = NPM3DDataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, split="train"
+            config_file_path="config.yml", datapath=datapath, chosen_log=chosen_log, task="train"
         )
         test_dataset = NPM3DDataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, split="validation"
+            config_file_path="config.yml",
+            datapath=datapath,
+            chosen_log=chosen_log,
+            task="validation",
         )
         train_sampler = NPM3DSampler(train_dataset)
         test_sampler = NPM3DSampler(test_dataset)
         collate_fn = NPM3DCollate
     elif dataset == "S3DIS":
         train_dataset = S3DISDataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, split="train"
+            config_file_path="config.yml", datapath=datapath, chosen_log=chosen_log, task="train"
         )
         test_dataset = S3DISDataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, split="validation"
+            config_file_path="config.yml",
+            datapath=datapath,
+            chosen_log=chosen_log,
+            task="validation",
         )
         train_sampler = S3DISSampler(train_dataset)
         test_sampler = S3DISSampler(test_dataset)
@@ -125,14 +132,14 @@ def train(
             config=config,
             datapath=datapath,
             chosen_log=chosen_log,
-            split="train",
+            task="train",
             balance_classes=True,
         )
         test_dataset = SemanticKittiDataset(
             config=config,
             datapath=datapath,
             chosen_log=chosen_log,
-            split="validation",
+            task="validation",
             balance_classes=False,
         )
         train_sampler = SemanticKittiSampler(train_dataset)
@@ -140,10 +147,10 @@ def train(
         collate_fn = SemanticKittiCollate
     elif dataset == "Toronto3D":
         train_dataset = Toronto3DDataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, split="train"
+            config=config, datapath=datapath, chosen_log=chosen_log, task="train"
         )
         test_dataset = Toronto3DDataset(
-            config=config, datapath=datapath, chosen_log=chosen_log, split="validation"
+            config=config, datapath=datapath, chosen_log=chosen_log, task="validation"
         )
         train_sampler = Toronto3DSampler(train_dataset)
         test_sampler = Toronto3DSampler(test_dataset)

@@ -22,7 +22,7 @@ class SemanticKittiDataset(PointCloudDataset):
         chosen_log=None,
         infered_file=None,
         balance_classes=True,
-        split="train",
+        task="train",
     ):
         super().__init__(
             config_file_path=config_file_path,
@@ -30,7 +30,7 @@ class SemanticKittiDataset(PointCloudDataset):
             dataset="SemanticKitti",
             chosen_log=chosen_log,
             infered_file=infered_file,
-            split=split,
+            task=task,
         )
 
         ##########################
@@ -38,14 +38,14 @@ class SemanticKittiDataset(PointCloudDataset):
         ##########################
 
         # Get a list of sequences
-        if self.split == "train":
+        if self.task == "train":
             self.sequences = [f"{i:02d}" for i in range(11) if i != 8]
-        elif self.split == "validation":
+        elif self.task == "validation":
             self.sequences = [f"{i:02d}" for i in range(11) if i == 8]
-        elif self.split == "test":
+        elif self.task == "test":
             self.sequences = [f"{i:02d}" for i in range(11, 22)]
         else:
-            raise ValueError("Unknown set for SemanticKitti data: ", self.split)
+            raise ValueError("Unknown task for SemanticKitti data: ", self.task)
 
         # List all files in each sequence
         self.frames = []
@@ -127,7 +127,7 @@ class SemanticKittiDataset(PointCloudDataset):
         self.balance_classes = balance_classes
 
         # Choose batch_num in_R and max_in_p depending on validation or training
-        if self.split == "train":
+        if self.task == "train":
             self.batch_num = self.config["train"]["batch_num"]
             self.max_in_p = self.config["kpconv"]["max_in_points"]
             self.in_R = self.config["input"]["in_radius"]
@@ -137,7 +137,7 @@ class SemanticKittiDataset(PointCloudDataset):
             self.in_R = self.config["kpconv"]["val_radius"]
 
         # shared epoch indices and classes (in case we want class balanced sampler)
-        if self.split == "train":
+        if self.task == "train":
             N = int(np.ceil(self.config.epoch_steps * self.batch_num * 1.1))
         else:
             N = int(np.ceil(self.config.validation_size * self.batch_num * 1.1))
@@ -243,7 +243,7 @@ class SemanticKittiDataset(PointCloudDataset):
                 velo_file = os.path.join(
                     seq_path, "velodyne", self.frames[s_ind][f_ind - f_inc] + ".bin"
                 )
-                if self.split == "test":
+                if self.task == "test":
                     label_file = None
                 else:
                     label_file = os.path.join(
@@ -254,7 +254,7 @@ class SemanticKittiDataset(PointCloudDataset):
                 frame_points = np.fromfile(velo_file, dtype=np.float32)
                 points = frame_points.reshape((-1, 4))
 
-                if self.split == "test":
+                if self.task == "test":
                     # Fake labels
                     sem_labels = np.zeros((frame_points.shape[0],), dtype=np.int32)
                 else:
@@ -268,7 +268,7 @@ class SemanticKittiDataset(PointCloudDataset):
                 new_points = np.sum(np.expand_dims(hpoints, 2) * pose.T, axis=1)
 
                 # In case of validation, keep the original points in memory
-                if self.split in ["validation", "test"] and f_inc == 0:
+                if self.task in ["validation", "test"] and f_inc == 0:
                     o_pts = new_points[:, :3].astype(np.float32)
                     o_labels = sem_labels.astype(np.int32)
 
@@ -340,7 +340,7 @@ class SemanticKittiDataset(PointCloudDataset):
             t += [time.time()]
 
             # Before augmenting, compute reprojection inds (only for validation and test)
-            if self.split in ["validation", "test"]:
+            if self.task in ["validation", "test"]:
 
                 # get val_points that are in range
                 radiuses = np.sum(np.square(o_pts - p0), axis=1)
@@ -579,7 +579,7 @@ class SemanticKittiDataset(PointCloudDataset):
         # For each class list the frames containing them
         ################################################
 
-        if self.split in ["train", "validation"]:
+        if self.task in ["train", "validation"]:
 
             class_frames_bool = np.zeros((0, self.num_classes), dtype=np.bool)
             self.class_proportions = np.zeros((self.num_classes,), dtype=np.int32)
@@ -654,7 +654,7 @@ class SemanticKittiDataset(PointCloudDataset):
                     self.class_frames.append(torch.from_numpy(integer_inds.astype(np.int64)))
 
         # Add variables for validation
-        if self.split == "validation":
+        if self.task == "validation":
             self.val_points = []
             self.val_labels = []
             self.val_confs = []
@@ -730,11 +730,11 @@ class SemanticKittiSampler(Sampler):
 
         # Dataset used by the sampler (no copy is made in memory)
         self.dataset = dataset
-        self.calibration_path = os.path.join(self.dataset.path, "calibration")
+        self.calibration_path = os.path.join(self.dataset.datapath, "calibration")
         os.makedirs(self.calibration_path, exist_ok=True)
 
         # Number of step per epoch
-        if dataset.set == "train":
+        if dataset.task == "train":
             self.N = dataset.config.epoch_steps
         else:
             self.N = dataset.config.validation_size
@@ -975,7 +975,7 @@ class SemanticKittiSampler(Sampler):
                 pickle.dump(max_in_lim_dict, file)
 
         # Update value in config
-        if self.dataset.set == "train":
+        if self.dataset.task == "train":
             config.max_in_points = self.dataset.max_in_p
         else:
             config.max_val_points = self.dataset.max_in_p

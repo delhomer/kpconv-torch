@@ -57,7 +57,7 @@ def kpconv_parser(subparser, reference_func, command, command_description):
             type=valid_file,
             help=(
                 "File on which to predict semantic labels starting from a trained model "
-                "(if None, use the validation split)"
+                "(if None, use the validation task)"
             ),
         )
 

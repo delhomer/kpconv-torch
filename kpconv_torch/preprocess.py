@@ -35,31 +35,31 @@ def preprocess(datapath: Path, dataset: str) -> None:
     # Initialize datasets
     if dataset == "ModelNet40":
         # Training
-        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, split="train")
+        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
-        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, split="validation")
+        _ = ModelNet40Dataset(config_file_path="config.yml", datapath=datapath, task="validation")
     elif dataset == "NPM3D":
         # Training
-        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, split="train")
+        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
-        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, split="validation")
+        _ = NPM3DDataset(config_file_path="config.yml", datapath=datapath, task="validation")
     elif dataset == "S3DIS":
         # Training
-        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, split="train")
+        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
-        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, split="validation")
+        _ = S3DISDataset(config_file_path="config.yml", datapath=datapath, task="validation")
     elif dataset == "SemanticKitti":
         # Training
-        _ = SemanticKittiDataset(config_file_path="config.yml", datapath=datapath, split="train")
+        _ = SemanticKittiDataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
         _ = SemanticKittiDataset(
             config_file_path="config.yml",
             datapath=datapath,
-            split="validation",
+            task="validation",
             balance_classes=False,
         )
     elif dataset == "Toronto3D":
         # Training
-        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, split="train")
+        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, task="train")
         # Validation
-        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, split="validation")
+        _ = Toronto3DDataset(config_file_path="config.yml", datapath=datapath, task="validation")

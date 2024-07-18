@@ -184,7 +184,7 @@ class ModelTester:
                 os.makedirs(os.path.join(self.test_path, "potentials"))
 
         # If on validation directly compute score
-        if test_loader.dataset.set == "validation":
+        if test_loader.dataset.task == "validation":
             val_proportions = np.zeros(nc_model, dtype=np.float32)
             i = 0
             for label_value in test_loader.dataset.label_values:
@@ -303,7 +303,7 @@ class ModelTester:
                 last_min += 1
 
                 # Show vote results (On subcloud so it is not the good values here)
-                if test_loader.dataset.set == "validation":
+                if test_loader.dataset.task == "validation":
                     print("\nConfusion on sub clouds")
                     Confs = []
                     for file_idx, _ in enumerate(test_loader.dataset.files):
@@ -374,7 +374,7 @@ class ModelTester:
                     print(f"Done in {t2 - t1:.1f} s\n")
 
                     # Show vote results
-                    if test_loader.dataset.set == "validation":
+                    if test_loader.dataset.task == "validation":
                         print("Confusion on full clouds")
                         t1 = time.time()
                         Confs = []
@@ -453,7 +453,7 @@ class ModelTester:
                         )
 
                         # Save ascii preds
-                        if test_loader.dataset.set == "test":
+                        if test_loader.dataset.task == "test":
                             if test_loader.dataset.name.startswith("Semantic3D"):
                                 ascii_name = os.path.join(
                                     self.test_path,
@@ -505,7 +505,7 @@ class ModelTester:
             if not os.path.exists(report_path):
                 os.makedirs(report_path)
 
-        if test_loader.dataset.set == "validation":
+        if test_loader.dataset.task == "validation":
             for folder in ["val_predictions", "val_probs"]:
                 if not os.path.exists(os.path.join(self.test_path, folder)):
                     os.makedirs(os.path.join(self.test_path, folder))
@@ -517,7 +517,7 @@ class ModelTester:
         # Init validation container
         all_f_preds = []
         all_f_labels = []
-        if test_loader.dataset.set == "validation":
+        if test_loader.dataset.task == "validation":
             for seq_frames in test_loader.dataset.frames:
                 all_f_preds.append([np.zeros((0,), dtype=np.int32) for _ in seq_frames])
                 all_f_labels.append([np.zeros((0,), dtype=np.int32) for _ in seq_frames])
@@ -587,7 +587,7 @@ class ModelTester:
 
                     # Save probs in a binary file (uint8 format for lighter weight)
                     seq_name = test_loader.dataset.sequences[s_ind]
-                    if test_loader.dataset.set == "validation":
+                    if test_loader.dataset.task == "validation":
                         folder = "val_probs"
                         pred_folder = "val_predictions"
                     else:
@@ -605,7 +605,7 @@ class ModelTester:
                     np.save(filepath, frame_probs_uint8)
 
                     # Save some prediction in ply format for visual
-                    if test_loader.dataset.set == "validation":
+                    if test_loader.dataset.task == "validation":
 
                         # Insert false columns for ignored labels
                         frame_probs_uint8_bis = frame_probs_uint8.copy()
@@ -769,7 +769,7 @@ class ModelTester:
                 # Update last_min
                 last_min += 1
 
-                if test_loader.dataset.set == "validation" and last_min % 1 == 0:
+                if test_loader.dataset.task == "validation" and last_min % 1 == 0:
 
                     #####################################
                     # Results on the whole validation set

@@ -24,7 +24,7 @@ class Toronto3DDataset(PointCloudDataset):
         chosen_log=None,
         infered_file=None,
         load_data=True,
-        split="train",
+        task="train",
     ):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here
@@ -35,7 +35,7 @@ class Toronto3DDataset(PointCloudDataset):
             dataset="Toronto3D",
             chosen_log=chosen_log,
             infered_file=infered_file,
-            split=split,
+            task=task,
         )
 
         ############
@@ -72,10 +72,10 @@ class Toronto3DDataset(PointCloudDataset):
 
         # Proportion of validation scenes
         self.cloud_names = ["L001", "L002", "L003", "L004"]
-        self.all_splits = list(range(len(self.cloud_names)))
-        self.validation_split = 1
-        self.test_splits = 1
-        self.train_splits = [0, 2, 3]
+        self.all_tasks = list(range(len(self.cloud_names)))
+        self.validation_task = 1
+        self.test_tasks = 1
+        self.train_tasks = [0, 2, 3]
 
         # Define offset
         self.UTM_OFFSET = [627285, 4841948, 0]
@@ -83,14 +83,14 @@ class Toronto3DDataset(PointCloudDataset):
         self.test_cloud_names = ["L002"]
 
         # Number of models used per epoch
-        if self.split == "train":
+        if self.task == "train":
             self.epoch_n = self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
-        elif self.split in ["validation", "test", "ERF"]:
+        elif self.task in ["validation", "test", "ERF"]:
             self.epoch_n = (
                 self.config["train"]["validation_size"] * self.config["train"]["batch_num"]
             )
         else:
-            raise ValueError("Unknown set for Toronto3D (with features) data: ", self.split)
+            raise ValueError("Unknown task for Toronto3D (with features) data: ", self.task)
 
         # Stop data is not needed
         if not load_data:
@@ -109,26 +109,26 @@ class Toronto3DDataset(PointCloudDataset):
         # List of training files
         self.files = []
         for i, f in enumerate(self.cloud_names):
-            if self.split == "train":
-                if self.all_splits[i] != self.validation_split:
+            if self.task == "train":
+                if self.all_tasks[i] != self.validation_task:
                     self.files += [os.path.join(ply_path, f + ".ply")]
-            elif self.split in ["validation", "test", "ERF"]:
-                if self.all_splits[i] == self.validation_split:
+            elif self.task in ["validation", "test", "ERF"]:
+                if self.all_tasks[i] == self.validation_task:
                     self.files += [os.path.join(ply_path, f + ".ply")]
             else:
-                raise ValueError("Unknown set for Toronto3D (with features) data: ", self.split)
+                raise ValueError("Unknown task for Toronto3D (with features) data: ", self.task)
 
-        if self.split == "train":
+        if self.task == "train":
             self.cloud_names = [
                 f
                 for i, f in enumerate(self.cloud_names)
-                if self.all_splits[i] != self.validation_split
+                if self.all_tasks[i] != self.validation_task
             ]
-        elif self.split in ["validation", "test", "ERF"]:
+        elif self.task in ["validation", "test", "ERF"]:
             self.cloud_names = [
                 f
                 for i, f in enumerate(self.cloud_names)
-                if self.all_splits[i] == self.validation_split
+                if self.all_tasks[i] == self.validation_task
             ]
 
         if 0 < self.config["kpconv"]["first_subsampling_dl"] <= 0.01:
@@ -194,7 +194,7 @@ class Toronto3DDataset(PointCloudDataset):
         self.worker_lock = Lock()
 
         # For ERF visualization, we want only one cloud per batch and no randomness
-        if self.split == "ERF":
+        if self.task == "ERF":
             self.batch_limit = torch.tensor([1], dtype=torch.float32)
             self.batch_limit.share_memory_()
             np.random.seed(42)
@@ -289,7 +289,7 @@ class Toronto3DDataset(PointCloudDataset):
                 center_point = pot_points[point_ind, :].reshape(1, -1)
 
                 # Add a small noise to center point
-                if self.split != "ERF":
+                if self.task != "ERF":
                     center_point += np.random.normal(
                         scale=self.config["input"]["in_radius"] / 10, size=center_point.shape
                     )
@@ -303,7 +303,7 @@ class Toronto3DDataset(PointCloudDataset):
                 pot_inds = pot_inds[0]
 
                 # Update potentials (Tukey weights)
-                if self.split != "ERF":
+                if self.task != "ERF":
                     tukeys = np.square(1 - d2s / np.square(self.config["input"]["in_radius"]))
                     tukeys[d2s > np.square(self.config["input"]["in_radius"])] = 0
                     self.potentials[cloud_ind][pot_inds] += tukeys
@@ -338,7 +338,7 @@ class Toronto3DDataset(PointCloudDataset):
             # Collect labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
             input_colors = self.input_colors[cloud_ind][input_inds]
-            if self.split in ["test", "ERF"]:
+            if self.task in ["test", "ERF"]:
                 input_labels = np.zeros(input_points.shape[0])
             else:
                 input_labels = self.input_labels[cloud_ind][input_inds]
@@ -529,7 +529,7 @@ class Toronto3DDataset(PointCloudDataset):
             center_point = points[point_ind, :].reshape(1, -1)
 
             # Add a small noise to center point
-            if self.split != "ERF":
+            if self.task != "ERF":
                 center_point += np.random.normal(
                     scale=self.config["input"]["in_radius"] / 10, size=center_point.shape
                 )
@@ -552,7 +552,7 @@ class Toronto3DDataset(PointCloudDataset):
             # Collect labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
             input_colors = self.input_colors[cloud_ind][input_inds]
-            if self.split in ["test", "ERF"]:
+            if self.task in ["test", "ERF"]:
                 input_labels = np.zeros(input_points.shape[0])
             else:
                 input_labels = self.input_labels[cloud_ind][input_inds]
@@ -825,7 +825,7 @@ class Toronto3DDataset(PointCloudDataset):
         self.num_clouds = len(self.input_trees)
 
         # Only necessary for validation and test sets
-        if self.split in ["validation", "test"]:
+        if self.task in ["validation", "test"]:
 
             print("\nPreparing reprojection indices for testing")
 
@@ -867,7 +867,7 @@ class Toronto3DDataset(PointCloudDataset):
 
     def load_evaluation_points(self, file_path):
         """
-        Load points (from test or validation split) on which the metrics should be evaluated
+        Load points (from test or validation task) on which the metrics should be evaluated
         """
 
         # Get original points
@@ -887,7 +887,7 @@ class Toronto3DSampler(Sampler):
         os.makedirs(self.calibration_path, exist_ok=True)
 
         # Number of step per epoch
-        if dataset.set == "train":
+        if dataset.task == "train":
             self.N = dataset.config.epoch_steps
         else:
             self.N = dataset.config.validation_size

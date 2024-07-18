@@ -83,7 +83,7 @@ def test(
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = -1
 
-    # Choose to test on validation or test split
+    # Choose to test on validation or test task
     on_val = True
 
     # Deal with 'last_XXXXXX' choices
@@ -119,7 +119,7 @@ def test(
     print("Data Preparation")
     print("****************")
 
-    split = "validation" if on_val else "test"
+    task = "validation" if on_val else "test"
 
     # Initiate dataset
     if dataset == "ModelNet40":
@@ -138,7 +138,7 @@ def test(
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=filename,
-            split="validation" if filename is None else "test",
+            task="validation" if filename is None else "test",
         )
         test_sampler = S3DISSampler(test_dataset)
         collate_fn = S3DISCollate
@@ -148,7 +148,7 @@ def test(
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=filename,
-            split="test",
+            task="test",
         )
         test_sampler = Toronto3DSampler(test_dataset)
         collate_fn = Toronto3DCollate
@@ -158,7 +158,7 @@ def test(
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=filename,
-            split=split,
+            task=task,
             balance_classes=False,
         )
         test_sampler = SemanticKittiSampler(test_dataset)

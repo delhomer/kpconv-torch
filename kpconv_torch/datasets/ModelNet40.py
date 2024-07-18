@@ -20,7 +20,7 @@ class ModelNet40Dataset(PointCloudDataset):
         chosen_log=None,
         infered_file=None,
         orient_correction=True,
-        split="train",
+        task="train",
     ):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here
@@ -31,7 +31,7 @@ class ModelNet40Dataset(PointCloudDataset):
             dataset="ModelNet40",
             chosen_log=chosen_log,
             infered_file=infered_file,
-            split=split,
+            task=task,
         )
 
         ############
@@ -48,7 +48,7 @@ class ModelNet40Dataset(PointCloudDataset):
         self.num_classes = self.config["input"]["num_classes"]
 
         # Number of models and models used per epoch
-        if self.split == "train":
+        if self.task == "train":
             self.num_models = 9843
             if (
                 self.config["train"]["epoch_steps"]
@@ -167,14 +167,14 @@ class ModelNet40Dataset(PointCloudDataset):
         t0 = time.time()
 
         # Load wanted points if possible
-        if self.split == "train":
-            split = "train"
+        if self.task == "train":
+            task = "train"
         else:
-            split = "test"
+            task = "test"
 
         t = self.config["kpconv"]["first_subsampling_dl"]
-        print(f"\nLoading {split} points subsampled at {t:3f}")
-        filename = os.path.join(self.datapath, f"{split}_{t:3f}_record.pkl")
+        print(f"\nLoading {task} points subsampled at {t:3f}")
+        filename = os.path.join(self.datapath, f"{task}_{t:3f}_record.pkl")
 
         if os.path.exists(filename):
             with open(filename, "rb") as file:
@@ -184,7 +184,7 @@ class ModelNet40Dataset(PointCloudDataset):
         else:
 
             # Collect train file names
-            if self.split == "train":
+            if self.task == "train":
                 names = np.loadtxt(
                     os.path.join(self.datapath, "modelnet40_train.txt"), dtype=np.str
                 )

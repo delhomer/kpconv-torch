@@ -28,7 +28,7 @@ class S3DISDataset(PointCloudDataset):
         chosen_log=None,
         infered_file=None,
         load_data=True,
-        split="train",
+        task="train",
     ):
         """
         This dataset is small enough to be stored in-memory, so load all point clouds here.
@@ -41,7 +41,7 @@ class S3DISDataset(PointCloudDataset):
         - infered_file: -f CLI parameter, path to the file on which to predict semantic labels,
           using the trained model
         - load_data: boolean, saying if loading the .ply file is needed or not
-        - split: operation type to realize, can be "all", "ERF", "train", "test", "validation"
+        - task: operation type to realize, can be "all", "ERF", "train", "test", "validation"
         """
         super().__init__(
             config_file_path=config_file_path,
@@ -49,7 +49,7 @@ class S3DISDataset(PointCloudDataset):
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=infered_file,
-            split=split,
+            task=task,
         )
 
         ############
@@ -81,17 +81,17 @@ class S3DISDataset(PointCloudDataset):
             os.makedirs(self.tree_path)
 
         # Data folder management
-        if self.split == "test" and infered_file is not None:
+        if self.task == "test" and infered_file is not None:
             # Inference case: a S3DIS dataset is built with the infered file
             self.cloud_names = [infered_file]
         else:
             # Any other case: the S3DIS dataset is built with the S3DIS original data
-            if self.split == "all":
+            if self.task == "all":
                 self.cloud_names = (
                     self.config["model"]["train_cloud_names"]
                     + self.config["model"]["validation_cloud_names"]
                 )
-            elif self.split == "train":
+            elif self.task == "train":
                 self.cloud_names = self.config["train"]["train_cloud_names"]
             else:
                 self.cloud_names = self.config["train"]["validation_cloud_names"]
@@ -102,7 +102,7 @@ class S3DISDataset(PointCloudDataset):
         self.files = [
             (
                 cloud_name
-                if self.split == "test" and infered_file is not None
+                if self.task == "test" and infered_file is not None
                 else self.train_files_path / (cloud_name + ".ply")
             )
             for i, cloud_name in enumerate(self.cloud_names)
@@ -134,7 +134,7 @@ class S3DISDataset(PointCloudDataset):
                 if self.config["input"]["use_potentials"]:
                     self.load_coarse_potential_locations(cloud_name, cur_kdtree.data)
                 # Only necessary for validation and test sets
-                if self.split in ["validation", "test"]:
+                if self.task in ["validation", "test"]:
                     self.load_projection_indices(cloud_name, file_path, cur_kdtree)
 
             ############################
@@ -144,7 +144,7 @@ class S3DISDataset(PointCloudDataset):
             self.set_batch_selection_parameters()
 
             # For ERF visualization, we want only one cloud per batch and no randomness
-            if self.split == "ERF":
+            if self.task == "ERF":
                 self.batch_limit = torch.tensor([1], dtype=torch.float32)
                 self.batch_limit.share_memory_()
                 np.random.seed(42)
@@ -237,7 +237,7 @@ class S3DISDataset(PointCloudDataset):
                 center_point = pot_points[point_ind, :].reshape(1, -1)
 
                 # Add a small noise to center point
-                if self.split != "ERF":
+                if self.task != "ERF":
                     center_point += np.random.normal(
                         scale=self.config.in_radius / 10, size=center_point.shape
                     )
@@ -251,7 +251,7 @@ class S3DISDataset(PointCloudDataset):
                 pot_inds = pot_inds[0]
 
                 # Update potentials (Tukey weights)
-                if self.split != "ERF":
+                if self.task != "ERF":
                     tukeys = np.square(1 - d2s / np.square(self.config.in_radius))
                     tukeys[d2s > np.square(self.config.in_radius)] = 0
                     self.potentials[cloud_ind][pot_inds] += tukeys
@@ -286,7 +286,7 @@ class S3DISDataset(PointCloudDataset):
             # Collect labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
             input_colors = self.input_colors[cloud_ind][input_inds]
-            if self.split in ["test", "ERF"]:
+            if self.task in ["test", "ERF"]:
                 input_labels = np.zeros(input_points.shape[0])
             else:
                 input_labels = self.input_labels[cloud_ind][input_inds]
@@ -477,7 +477,7 @@ class S3DISDataset(PointCloudDataset):
             center_point = points[point_ind, :].reshape(1, -1)
 
             # Add a small noise to center point
-            if self.split != "ERF":
+            if self.task != "ERF":
                 center_point += np.random.normal(
                     scale=self.config.in_radius / 10, size=center_point.shape
                 )
@@ -500,7 +500,7 @@ class S3DISDataset(PointCloudDataset):
             # Collect labels and colors
             input_points = (points[input_inds] - center_point).astype(np.float32)
             input_colors = self.input_colors[cloud_ind][input_inds]
-            if self.split in ["test", "ERF"]:
+            if self.task in ["test", "ERF"]:
                 input_labels = np.zeros(input_points.shape[0])
             else:
                 input_labels = self.input_labels[cloud_ind][input_inds]
@@ -792,7 +792,7 @@ class S3DISDataset(PointCloudDataset):
         self.batch_limit.share_memory_()
 
         # Number of models used per epoch
-        if self.split == "train":
+        if self.task == "train":
             self.epoch_n = self.config["train"]["epoch_steps"] * self.config["train"]["batch_num"]
         else:
             self.epoch_n = (
@@ -840,7 +840,7 @@ class S3DISDataset(PointCloudDataset):
 
     def load_evaluation_points(self, file_path):
         """
-        Load points (from test or validation split) on which the metrics should be evaluated
+        Load points (from test or validation task) on which the metrics should be evaluated
         """
         points, _, _ = self.read_input(file_path)
         return points
@@ -876,11 +876,11 @@ class S3DISSampler(Sampler):
 
         # Dataset used by the sampler (no copy is made in memory)
         self.dataset = dataset
-        self.calibration_path = os.path.join(self.dataset.path, "calibration")
+        self.calibration_path = os.path.join(self.dataset.datapath, "calibration")
         os.makedirs(self.calibration_path, exist_ok=True)
 
         # Number of step per epoch
-        if dataset.set == "train":
+        if dataset.task == "train":
             self.N = dataset.config.epoch_steps
         else:
             self.N = dataset.config.validation_size
