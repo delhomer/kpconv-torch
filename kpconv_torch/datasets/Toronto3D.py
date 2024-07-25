@@ -1139,9 +1139,9 @@ class Toronto3DSampler(Sampler):
             for layer_ind in range(self.dataset.self.num_layers):
                 dl = self.dataset.self.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
-                    r = dl * self.dataset.self.config["kpconv"]["deform_radius"]
+                    r = dl * self.dataset.config["kpconv"]["deform_radius"]
                 else:
-                    r = dl * self.dataset.self.config["kpconv"]["conv_radius"]
+                    r = dl * self.dataset.config["kpconv"]["conv_radius"]
                 key = f"{dl:.3f}_{r:.3f}"
 
                 if key in neighb_lim_dict:
@@ -1339,9 +1339,9 @@ class Toronto3DSampler(Sampler):
                 sampler_method = "potentials"
             else:
                 sampler_method = "random"
-            t = self.dataset.self.config["kpconv"]["sphere_radius"]
-            t1 = self.dataset.self.config["kpconv"]["first_subsampling_dl"]
-            t2 = self.dataset.self.config["train"]["batch_num"]
+            t = self.dataset.config["kpconv"]["sphere_radius"]
+            t1 = self.dataset.config["kpconv"]["first_subsampling_dl"]
+            t2 = self.dataset.config["train"]["batch_num"]
             key = f"{sampler_method}_{t:3f}_" f"{t1:3f}_{t2:d}"
             batch_lim_dict[key] = float(self.dataset.batch_limit)
             with open(batch_lim_file, "wb") as file:
@@ -1349,7 +1349,7 @@ class Toronto3DSampler(Sampler):
 
             # Save neighb_limit dictionary
             for layer_ind in range(self.dataset.self.num_layers):
-                dl = self.dataset.self.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
+                dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config["kpconv"]["deform_radius"]
                 else:
