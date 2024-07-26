@@ -45,6 +45,8 @@ repos:
     hooks:
       - id: pylint
         args: [--fail-under=8]
+        files: \.py
+        exclude: .pylintrc
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v2.40.0
