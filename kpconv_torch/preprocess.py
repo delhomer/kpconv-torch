@@ -1,35 +1,41 @@
+"""
+Dataset preprocess functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915
+
 from pathlib import Path
 
-from kpconv_torch.datasets.ModelNet40 import (
-    ModelNet40Dataset,
-)
-from kpconv_torch.datasets.NPM3D import (
-    NPM3DDataset,
-)
-from kpconv_torch.datasets.S3DIS import (
-    S3DISDataset,
-)
-from kpconv_torch.datasets.SemanticKitti import (
-    SemanticKittiDataset,
-)
-from kpconv_torch.datasets.Toronto3D import (
-    Toronto3DDataset,
-)
+from kpconv_torch.datasets.modelnet40_dataset import ModelNet40Dataset
+from kpconv_torch.datasets.npm3d_dataset import NPM3DDataset
+from kpconv_torch.datasets.semantickitti_dataset import SemanticKittiDataset
+from kpconv_torch.datasets.s3dis_dataset import S3DISDataset
+from kpconv_torch.datasets.toronto3d_dataset import Toronto3DDataset
 
 from kpconv_torch.utils.config import load_config
 
 
 def main(args):
+    """
+    Launch the testing from the CLI arguments
+    """
     preprocess(args.datapath, args.configfile)
 
 
 def preprocess(datapath: Path, configfile_path: Path) -> None:
+    """
+    Dataset preprocessing
+    :param datapath: path to the data folder
+    :param configfile: path to the config file
+    """
     # Option: set which gpu is going to be used and set the GPU visible device
-    # By modifying the CUDA_VISIBLE_DEVICES environment variable
+    # By modifying the cuda_visible_devices environment variable
 
-    ##############
     # Prepare Data
-    ##############
     print()
     print("Data Preparation")
     print("****************")
