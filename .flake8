@@ -2,11 +2,11 @@
 max-line-length = 100
 max-complexity = 15
 ignore = E203,W503,C901
-per-file-ignores=kpconv_torch/utils/visualizer.py:B023
 select = C,E,F,W,B,B950
 exclude =
     build/,
     *venv/,
+    kpconv_torch/utils/model_visualizer.py
 
 application-import-names = kpconv_torch, cpp_wrappers
 import-order-style = google

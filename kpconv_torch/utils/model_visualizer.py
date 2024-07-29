@@ -1,3 +1,13 @@
+"""
+ModelVisualizer class
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, C0103, E0401
+
 import os
 import time
 
@@ -8,7 +18,7 @@ import torch
 
 from kpconv_torch.models.blocks import KPConv
 from kpconv_torch.io.ply import write_ply
-from kpconv_torch.utils.config import bcolors
+from kpconv_torch.utils.config import BColors
 
 
 class ModelVisualizer:
@@ -21,10 +31,7 @@ class ModelVisualizer:
         :param on_gpu: Train on GPU or CPU
         """
 
-        ############
         # Parameters
-        ############
-
         self.config = config
 
         # Choose to train on CPU or GPU
@@ -34,10 +41,7 @@ class ModelVisualizer:
             self.device = torch.device("cpu")
         net.to(self.device)
 
-        ##########################
         # Load previous checkpoint
-        ##########################
-
         checkpoint = torch.load(chkp_path)
 
         new_dict = {}
@@ -51,29 +55,22 @@ class ModelVisualizer:
         net.eval()
         print(f"\nModel state restored from {chkp_path}.")
 
-        return
-
     # Main visualization methods
-    # ------------------------------------------------------------------------------------------------------------------
-
     def show_deformable_kernels(self, net, loader, deform_idx=0):
         """
         Show some inference with deformable kernels
         """
 
-        ##########################################
         # First choose the visualized deformations
-        ##########################################
-
         print("\nList of the deformable convolution available (chosen one highlighted in green)")
         fmt_str = "  {:}{:2d} > KPConv(r={:.3f}, Din={:d}, Dout={:d}){:}"
         deform_convs = []
         for m in net.modules():
             if isinstance(m, KPConv) and m.deformable:
                 if len(deform_convs) == deform_idx:
-                    color = bcolors.OKGREEN
+                    color = BColors.OKGREEN
                 else:
-                    color = bcolors.FAIL
+                    color = BColors.FAIL
                 print(
                     fmt_str.format(
                         color,
@@ -81,15 +78,12 @@ class ModelVisualizer:
                         m.radius,
                         m.in_channels,
                         m.out_channels,
-                        bcolors.ENDC,
+                        BColors.ENDC,
                     )
                 )
                 deform_convs.append(m)
 
-        ################
         # Initialization
-        ################
-
         print("\n****************************************************\n")
 
         # Loop variables
@@ -104,10 +98,7 @@ class ModelVisualizer:
 
             for batch in loader:
 
-                ##################
                 # Processing batch
-                ##################
-
                 # New time
                 t = t[-1:]
                 t += [time.time()]
@@ -156,10 +147,7 @@ class ModelVisualizer:
                     lookuptrees.append(KDTree(points[-1]))
                     i0 += length
 
-                ###########################
                 # Interactive visualization
-                ###########################
-
                 # Create figure for features
                 fig1 = mlab.figure("Deformations", bgcolor=(1.0, 1.0, 1.0), size=(1280, 920))
                 fig1.scene.parallel_projection = False
@@ -432,81 +420,9 @@ class ModelVisualizer:
                         )
                         print("OK")
 
-                    return
-
                 # Draw a first plot
                 pick_func = fig1.on_mouse_pick(picker_callback)
                 pick_func.tolerance = 0.01
                 update_scene()
                 fig1.scene.interactor.add_observer("KeyPressEvent", keyboard_callback)
                 mlab.show()
-
-        return
-
-    # Utilities
-    # ------------------------------------------------------------------------------------------------------------------
-
-
-def show_ModelNet_models(all_points):
-
-    ###########################
-    # Interactive visualization
-    ###########################
-
-    # Create figure for features
-    fig1 = mlab.figure("Models", bgcolor=(1, 1, 1), size=(1000, 800))
-    fig1.scene.parallel_projection = False
-
-    # Indices
-    global file_i
-    file_i = 0
-
-    def update_scene():
-
-        #  clear figure
-        mlab.clf(fig1)
-
-        # Plot new data feature
-        points = all_points[file_i]
-
-        # Rescale points for visu
-        points = (points * 1.5 + np.array([1.0, 1.0, 1.0])) * 50.0
-
-        # Show point clouds colorized with activations
-        mlab.points3d(
-            points[:, 0],
-            points[:, 1],
-            points[:, 2],
-            points[:, 2],
-            scale_factor=3.0,
-            scale_mode="none",
-            figure=fig1,
-        )
-
-        # New title
-        mlab.title(str(file_i), color=(0, 0, 0), size=0.3, height=0.01)
-        text = "<--- (press g for previous)" + 50 * " " + "(press h for next) --->"
-        mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
-        mlab.orientation_axes()
-
-        return
-
-    def keyboard_callback(vtk_obj, event):
-        global file_i
-
-        if vtk_obj.GetKeyCode() in ["g", "G"]:
-
-            file_i = (file_i - 1) % len(all_points)
-            update_scene()
-
-        elif vtk_obj.GetKeyCode() in ["h", "H"]:
-
-            file_i = (file_i + 1) % len(all_points)
-            update_scene()
-
-        return
-
-    # Draw a first plot
-    update_scene()
-    fig1.scene.interactor.add_observer("KeyPressEvent", keyboard_callback)
-    mlab.show()

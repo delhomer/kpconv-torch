@@ -1,3 +1,13 @@
+"""
+Metrics functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, C0103, E0401
+
 import numpy as np
 
 
@@ -93,7 +103,6 @@ def metrics(confusions, ignore_unclassified=False):
     :param ignore_unclassified: (bool). True if the the first class should be ignored in the
     results
     :return: ([..., n_c] np.float32) precision, recall, F1 score, IoU score
-
     """
 
     # If the first class (often "unclassified") should be ignored, erase it from the confusion.
@@ -135,7 +144,6 @@ def smooth_metrics(confusions, smooth_n=0, ignore_unclassified=False):
     :param ignore_unclassified: (bool). True if the the first class should be ignored in the
     results
     :return: ([..., n_c] np.float32) precision, recall, F1 score, IoU score
-
     """
 
     # If the first class (often "unclassified") should be ignored, erase it from the confusion.
@@ -184,7 +192,6 @@ def IoU_from_confusions(confusions):
     :param ignore_unclassified: (bool). True if the the first class should be ignored in the
     results
     :return: ([..., n_c] np.float32) IoU score
-
     """
 
     # Compute TP, FP, FN. This assume that the second to last axis counts the truths (like the

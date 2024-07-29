@@ -1,13 +1,22 @@
-import os
+"""
+Kernel point functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, E0401, C0103import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 from kpconv_torch.io.ply import read_ply, write_ply
-from kpconv_torch.utils.config import bcolors
+from kpconv_torch.utils.config import BColors
 
 
-def create_3D_rotations(axis, angle):
+def create_3d_rotations(axis, angle):
     """
     Create rotation matrices from a list of axes and angles. Code from wikipedia on quaternions
     :param axis: float32[N, 3]
@@ -76,17 +85,11 @@ def spherical_Lloyd(
 
     """
 
-    #######################
     # Parameters definition
-    #######################
-
     # Radius used for optimization (points are rescaled afterwards)
     radius0 = 1.0
 
-    #######################
     # Kernel initialization
-    #######################
-
     # Random kernel points (Uniform distribution in a sphere)
     kernel_points = np.zeros((0, dimension))
     while kernel_points.shape[0] < num_cells:
@@ -104,10 +107,7 @@ def spherical_Lloyd(
         kernel_points[1, -1] += 2 * radius0 / 3
         kernel_points[2, -1] -= 2 * radius0 / 3
 
-    ##############################
     # Approximation initialization
-    ##############################
-
     # Initialize figure
     if verbose > 1:
         fig = plt.figure()
@@ -137,10 +137,7 @@ def spherical_Lloyd(
     d2 = np.sum(np.power(X, 2), axis=1)
     X = X[d2 < radius0 * radius0, :]
 
-    #####################
     # Kernel optimization
-    #####################
-
     # Warning if at least one kernel point has no cell
     warning = False
 
@@ -191,7 +188,7 @@ def spherical_Lloyd(
             if warning:
                 print(
                     "{:}WARNING: at least one point has no cell{:}".format(
-                        bcolors.WARNING, bcolors.ENDC
+                        BColors.WARNING, BColors.ENDC
                     )
                 )
         if verbose > 1:
@@ -216,10 +213,7 @@ def spherical_Lloyd(
             plt.pause(0.001)
             plt.show(block=False)
 
-    ###################
     # User verification
-    ###################
-
     # Show the convergence to ask user if this kernel is correct
     if verbose:
         if dimension == 2:
@@ -276,10 +270,7 @@ def kernel_point_optimization_debug(
     :return: points [num_kernels, num_points, dimension]
     """
 
-    #######################
     # Parameters definition
-    #######################
-
     # Radius used for optimization (points are rescaled afterwards)
     radius0 = 1
     diameter0 = 2
@@ -294,10 +285,7 @@ def kernel_point_optimization_debug(
     # Gradient clipping value
     clip = 0.05 * radius0
 
-    #######################
     # Kernel initialization
-    #######################
-
     # Random kernel points
     kernel_points = np.random.rand(num_kernels * num_points - 1, dimension) * diameter0 - radius0
     while kernel_points.shape[0] < num_kernels * num_points:
@@ -317,10 +305,7 @@ def kernel_point_optimization_debug(
         kernel_points[:, 1, -1] += 2 * radius0 / 3
         kernel_points[:, 2, -1] -= 2 * radius0 / 3
 
-    #####################
     # Kernel optimization
-    #####################
-
     # Initialize figure
     if verbose > 1:
         fig = plt.figure()
@@ -334,8 +319,6 @@ def kernel_point_optimization_debug(
         step += 1
 
         # Compute gradients
-        # *****************
-
         # Derivative of the sum of potentials of all points
         A = np.expand_dims(kernel_points, axis=2)
         B = np.expand_dims(kernel_points, axis=1)
@@ -353,8 +336,6 @@ def kernel_point_optimization_debug(
             gradients[:, 1:3, :-1] = 0
 
         # Stop condition
-        # **************
-
         # Compute norm of gradients
         gradients_norms = np.sqrt(np.sum(np.power(gradients, 2), axis=-1))
         saved_gradient_norms[step, :] = np.max(gradients_norms, axis=1)
@@ -376,7 +357,6 @@ def kernel_point_optimization_debug(
         old_gradient_norms = gradients_norms
 
         # Move points
-        # ***********
 
         # Clip gradient to get moving dists
         moving_dists = np.minimum(moving_factor * gradients_norms, clip)
@@ -492,7 +472,7 @@ def load_kernels(radius, num_kpoints, dimension, fixed, lloyd=False):
             alpha = np.random.rand() * 2 * np.pi
 
             # Create the rotation matrix with this vector and angle
-            R = create_3D_rotations(np.reshape(u, (1, -1)), np.reshape(alpha, (1, -1)))[0]
+            R = create_3d_rotations(np.reshape(u, (1, -1)), np.reshape(alpha, (1, -1)))[0]
 
             R = R.astype(np.float32)
 

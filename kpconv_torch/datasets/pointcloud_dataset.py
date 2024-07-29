@@ -1,184 +1,20 @@
+"""
+Mother Dataset class
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
 import numpy as np
 from torch.utils.data import Dataset
 
-import radius_neighbors as cpp_neighbors
-import grid_subsampling as cpp_subsampling
-from kpconv_torch.kernels.kernel_points import create_3D_rotations
-from kpconv_torch.utils.mayavi_visu import show_ModelNet_examples
-from kpconv_torch.utils.tester import get_test_save_path
+from kpconv_torch.io.io import get_test_save_path
+from kpconv_torch.kernels.kernel_points import create_3d_rotations
+from kpconv_torch.utils.visu_mayavi_functions import show_modelnet_examples
+from kpconv_torch.datasets.common_functions import batch_grid_subsampling, batch_neighbors
 
-
-def grid_subsampling(points, features=None, labels=None, sampleDl=0.1, verbose=0):
-    """
-    CPP wrapper for a grid subsampling (method = barycenter for points and features)
-    :param points: (N, 3) matrix of input points
-    :param features: optional (N, d) matrix of features (floating number)
-    :param labels: optional (N,) matrix of integer labels
-    :param sampleDl: parameter defining the size of grid voxels
-    :param verbose: 1 to display
-    :return: subsampled points, with features and/or labels depending of the input
-    """
-
-    if (features is None) and (labels is None):
-        return cpp_subsampling.subsample(points, sampleDl=sampleDl, verbose=verbose)
-    elif labels is None:
-        return cpp_subsampling.subsample(
-            points, features=features, sampleDl=sampleDl, verbose=verbose
-        )
-    elif features is None:
-        return cpp_subsampling.subsample(points, classes=labels, sampleDl=sampleDl, verbose=verbose)
-    else:
-        return cpp_subsampling.subsample(
-            points,
-            features=features,
-            classes=labels,
-            sampleDl=sampleDl,
-            verbose=verbose,
-        )
-
-
-def batch_grid_subsampling(
-    points,
-    batches_len,
-    features=None,
-    labels=None,
-    sampleDl=0.1,
-    max_p=0,
-    verbose=0,
-    random_grid_orient=True,
-):
-    """
-    CPP wrapper for a grid subsampling (method = barycenter for points and features)
-    :param points: (N, 3) matrix of input points
-    :param features: optional (N, d) matrix of features (floating number)
-    :param labels: optional (N,) matrix of integer labels
-    :param sampleDl: parameter defining the size of grid voxels
-    :param verbose: 1 to display
-    :return: subsampled points, with features and/or labels depending of the input
-    """
-
-    R = None
-    B = len(batches_len)
-    if random_grid_orient:
-
-        ########################################################
-        # Create a random rotation matrix for each batch element
-        ########################################################
-
-        # Choose two random angles for the first vector in polar coordinates
-        theta = np.random.rand(B) * 2 * np.pi
-        phi = (np.random.rand(B) - 0.5) * np.pi
-
-        # Create the first vector in carthesian coordinates
-        u = np.vstack([np.cos(theta) * np.cos(phi), np.sin(theta) * np.cos(phi), np.sin(phi)])
-
-        # Choose a random rotation angle
-        alpha = np.random.rand(B) * 2 * np.pi
-
-        # Create the rotation matrix with this vector and angle
-        R = create_3D_rotations(u.T, alpha).astype(np.float32)
-
-        #################
-        # Apply rotations
-        #################
-
-        i0 = 0
-        points = points.copy()
-        for bi, length in enumerate(batches_len):
-            # Apply the rotation
-            points[i0 : i0 + length, :] = np.sum(
-                np.expand_dims(points[i0 : i0 + length, :], 2) * R[bi], axis=1
-            )
-            i0 += length
-
-    #######################
-    # Sunsample and realign
-    #######################
-
-    if (features is None) and (labels is None):
-        s_points, s_len = cpp_subsampling.subsample_batch(
-            points, batches_len, sampleDl=sampleDl, max_p=max_p, verbose=verbose
-        )
-        if random_grid_orient:
-            i0 = 0
-            for bi, length in enumerate(s_len):
-                s_points[i0 : i0 + length, :] = np.sum(
-                    np.expand_dims(s_points[i0 : i0 + length, :], 2) * R[bi].T, axis=1
-                )
-                i0 += length
-        return s_points, s_len
-
-    elif labels is None:
-        s_points, s_len, s_features = cpp_subsampling.subsample_batch(
-            points,
-            batches_len,
-            features=features,
-            sampleDl=sampleDl,
-            max_p=max_p,
-            verbose=verbose,
-        )
-        if random_grid_orient:
-            i0 = 0
-            for bi, length in enumerate(s_len):
-                # Apply the rotation
-                s_points[i0 : i0 + length, :] = np.sum(
-                    np.expand_dims(s_points[i0 : i0 + length, :], 2) * R[bi].T, axis=1
-                )
-                i0 += length
-        return s_points, s_len, s_features
-
-    elif features is None:
-        s_points, s_len, s_labels = cpp_subsampling.subsample_batch(
-            points,
-            batches_len,
-            classes=labels,
-            sampleDl=sampleDl,
-            max_p=max_p,
-            verbose=verbose,
-        )
-        if random_grid_orient:
-            i0 = 0
-            for bi, length in enumerate(s_len):
-                # Apply the rotation
-                s_points[i0 : i0 + length, :] = np.sum(
-                    np.expand_dims(s_points[i0 : i0 + length, :], 2) * R[bi].T, axis=1
-                )
-                i0 += length
-        return s_points, s_len, s_labels
-
-    else:
-        s_points, s_len, s_features, s_labels = cpp_subsampling.subsample_batch(
-            points,
-            batches_len,
-            features=features,
-            classes=labels,
-            sampleDl=sampleDl,
-            max_p=max_p,
-            verbose=verbose,
-        )
-        if random_grid_orient:
-            i0 = 0
-            for bi, length in enumerate(s_len):
-                # Apply the rotation
-                s_points[i0 : i0 + length, :] = np.sum(
-                    np.expand_dims(s_points[i0 : i0 + length, :], 2) * R[bi].T, axis=1
-                )
-                i0 += length
-        return s_points, s_len, s_features, s_labels
-
-
-def batch_neighbors(queries, supports, q_batches, s_batches, radius):
-    """
-    Computes neighbors for a batch of queries and supports
-    :param queries: (N1, 3) the query points
-    :param supports: (N2, 3) the support points
-    :param q_batches: (B) the list of lengths of batch elements in queries
-    :param s_batches: (B)the list of lengths of batch elements in supports
-    :param radius: float32
-    :return: neighbors indices
-    """
-
-    return cpp_neighbors.batch_query(queries, supports, q_batches, s_batches, radius=radius)
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, E0401, C0103
 
 
 class PointCloudDataset(Dataset):
@@ -207,8 +43,8 @@ class PointCloudDataset(Dataset):
         # Training or test set
         if task not in ["train", "validate", "test", "ERF", "all"]:
             raise ValueError("Unknown task for the dataset: ", task)
-        else:
-            self.task = task
+
+        self.task = task
 
         self.datapath = datapath
 
@@ -226,9 +62,7 @@ class PointCloudDataset(Dataset):
             + 1
         )
 
-        ###################
         # Deform layer list
-        ###################
         # List of boolean indicating which layer has a deformable convolution
 
         layer_blocks = []
@@ -243,8 +77,6 @@ class PointCloudDataset(Dataset):
                 continue
 
             # Convolution neighbors indices
-            # *****************************
-
             deform_layer = False
             if layer_blocks and np.any(["deformable" in blck for blck in layer_blocks]):
                 deform_layer = True
@@ -266,8 +98,6 @@ class PointCloudDataset(Dataset):
         self.label_to_idx = {l: i for i, l in enumerate(self.label_values)}
         self.name_to_label = {v: k for k, v in self.config["model"]["label_to_names"].items()}
 
-        return
-
     def __len__(self):
         """
         Return the length of data here
@@ -284,10 +114,7 @@ class PointCloudDataset(Dataset):
     def augmentation_transform(self, points, normals=None, verbose=False):
         """Implementation of an augmentation transform for point clouds."""
 
-        ##########
         # Rotation
-        ##########
-
         # Initialize rotation matrix
         R = np.eye(points.shape[1])
 
@@ -318,14 +145,11 @@ class PointCloudDataset(Dataset):
                 alpha = np.random.rand() * 2 * np.pi
 
                 # Create the rotation matrix with this vector and angle
-                R = create_3D_rotations(np.reshape(u, (1, -1)), np.reshape(alpha, (1, -1)))[0]
+                R = create_3d_rotations(np.reshape(u, (1, -1)), np.reshape(alpha, (1, -1)))[0]
 
         R = R.astype(np.float32)
 
-        #######
         # Scale
-        #######
-
         # Choose random scales for each example
         min_s = self.config["train"]["augment_scale_min"]
         max_s = self.config["train"]["augment_scale_max"]
@@ -339,40 +163,32 @@ class PointCloudDataset(Dataset):
         symmetries *= np.random.randint(2, size=points.shape[1])
         scale = (scale * (1 - symmetries * 2)).astype(np.float32)
 
-        #######
         # Noise
-        #######
-
         noise = (
             np.random.randn(points.shape[0], points.shape[1])
             * self.config["train"]["augment_noise"]
         ).astype(np.float32)
 
-        ##################
         # Apply transforms
-        ##################
-
         # Do not use np.dot because it is multi-threaded
         augmented_points = np.sum(np.expand_dims(points, 2) * R, axis=1) * scale + noise
 
         if normals is None:
             return augmented_points, scale, R
-        else:
-            # Anisotropic scale of the normals thanks to cross product formula
-            normal_scale = scale[[1, 2, 0]] * scale[[2, 0, 1]]
-            augmented_normals = np.dot(normals, R) * normal_scale
-            # Renormalise
-            augmented_normals *= 1 / (
-                np.linalg.norm(augmented_normals, axis=1, keepdims=True) + 1e-6
-            )
 
-            if verbose:
-                test_p = [np.vstack([points, augmented_points])]
-                test_n = [np.vstack([normals, augmented_normals])]
-                test_l = [np.hstack([points[:, 2] * 0, augmented_points[:, 2] * 0 + 1])]
-                show_ModelNet_examples(test_p, test_n, test_l)
+        # Anisotropic scale of the normals thanks to cross product formula
+        normal_scale = scale[[1, 2, 0]] * scale[[2, 0, 1]]
+        augmented_normals = np.dot(normals, R) * normal_scale
+        # Renormalise
+        augmented_normals *= 1 / (np.linalg.norm(augmented_normals, axis=1, keepdims=True) + 1e-6)
 
-            return augmented_points, augmented_normals, scale, R
+        if verbose:
+            test_p = [np.vstack([points, augmented_points])]
+            test_n = [np.vstack([normals, augmented_normals])]
+            test_l = [np.hstack([points[:, 2] * 0, augmented_points[:, 2] * 0 + 1])]
+            show_modelnet_examples(test_p, test_n, test_l)
+
+        return augmented_points, augmented_normals, scale, R
 
     def big_neighborhood_filter(self, neighbors, layer):
         """Filter neighborhoods with max number of neighbors. Limit is set to keep XX% of the
@@ -383,11 +199,13 @@ class PointCloudDataset(Dataset):
         # crop neighbors matrix
         if len(self.neighborhood_limits) > 0:
             return neighbors[:, : self.neighborhood_limits[layer]]
-        else:
-            return neighbors
+
+        return neighbors
 
     def classification_inputs(self, stacked_points, stacked_features, labels, stack_lengths):
-
+        """
+        docstring to do
+        """
         # Starting radius of convolutions
         r_normal = (
             self.config["kpconv"]["first_subsampling_dl"] * self.config["kpconv"]["conv_radius"]
@@ -403,10 +221,7 @@ class PointCloudDataset(Dataset):
         input_stack_lengths = []
         deform_layers = []
 
-        ######################
         # Loop over the blocks
-        ######################
-
         for block in self.config["model"]["architecture"]:
             # Get all blocks of the layer
             if not (
@@ -416,8 +231,6 @@ class PointCloudDataset(Dataset):
                 continue
 
             # Convolution neighbors indices
-            # *****************************
-
             deform_layer = False
             if layer_blocks:
                 # Convolutions are done in this layer, compute the neighbors with the good radius
@@ -439,8 +252,6 @@ class PointCloudDataset(Dataset):
                 conv_i = np.zeros((0, 1), dtype=np.int32)
 
             # Pooling neighbors indices
-            # *************************
-
             # If end of layer is a pooling operation
             if "pool" in block or "strided" in block:
 
@@ -493,10 +304,7 @@ class PointCloudDataset(Dataset):
             if "global" in block or "upsample" in block:
                 break
 
-        ###############
         # Return inputs
-        ###############
-
         # Save deform layers
 
         # list of network inputs
@@ -506,7 +314,9 @@ class PointCloudDataset(Dataset):
         return li
 
     def segmentation_inputs(self, stacked_points, stacked_features, labels, stack_lengths):
-
+        """
+        docstring to do
+        """
         # Starting radius of convolutions
         r_normal = (
             self.config["kpconv"]["first_subsampling_dl"] * self.config["kpconv"]["conv_radius"]
@@ -523,10 +333,7 @@ class PointCloudDataset(Dataset):
         input_stack_lengths = []
         deform_layers = []
 
-        ######################
         # Loop over the blocks
-        ######################
-
         for block in self.config["model"]["architecture"]:
             # Get all blocks of the layer
             if not (
@@ -536,8 +343,6 @@ class PointCloudDataset(Dataset):
                 continue
 
             # Convolution neighbors indices
-            # *****************************
-
             deform_layer = False
             if layer_blocks:
                 # Convolutions are done in this layer
@@ -560,8 +365,6 @@ class PointCloudDataset(Dataset):
                 conv_i = np.zeros((0, 1), dtype=np.int32)
 
             # Pooling neighbors indices
-            # *************************
-
             # If end of layer is a pooling operation
             if "pool" in block or "strided" in block:
 
@@ -621,10 +424,7 @@ class PointCloudDataset(Dataset):
             if "global" in block or "upsample" in block:
                 break
 
-        ###############
         # Return inputs
-        ###############
-
         # list of network inputs
         li = input_points + input_neighbors + input_pools + input_upsamples + input_stack_lengths
         li += [stacked_features, labels]

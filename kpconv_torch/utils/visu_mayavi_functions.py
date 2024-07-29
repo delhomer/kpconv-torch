@@ -1,12 +1,20 @@
+"""
+Mayavi visualization functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, E0401, C0103
+
+from mayavi import mlab
 import numpy as np
 
 
-def show_ModelNet_models(all_points):
-    from mayavi import mlab
+def show_modelnet_models(all_points):
 
-    ###########################
     # Interactive visualization
-    ###########################
     # Create figure for features
     fig1 = mlab.figure("Models", bgcolor=(1, 1, 1), size=(1000, 800))
     fig1.scene.parallel_projection = False
@@ -43,8 +51,6 @@ def show_ModelNet_models(all_points):
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
         mlab.orientation_axes()
 
-        return
-
     def keyboard_callback(vtk_obj, event):
         global file_i
 
@@ -58,20 +64,15 @@ def show_ModelNet_models(all_points):
             file_i = (file_i + 1) % len(all_points)
             update_scene()
 
-        return
-
     # Draw a first plot
     update_scene()
     fig1.scene.interactor.add_observer("KeyPressEvent", keyboard_callback)
     mlab.show()
 
 
-def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
-    from mayavi import mlab
+def show_modelnet_examples(clouds, cloud_normals=None, cloud_labels=None):
 
-    ###########################
     # Interactive visualization
-    ###########################
     # Create figure for features
     fig1 = mlab.figure("Models", bgcolor=(1, 1, 1), size=(1000, 800))
     fig1.scene.parallel_projection = False
@@ -129,8 +130,6 @@ def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
         mlab.orientation_axes()
 
-        return
-
     def keyboard_callback(vtk_obj, event):
         global file_i, show_normals
 
@@ -145,8 +144,6 @@ def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
         elif vtk_obj.GetKeyCode() in ["n", "N"]:
             show_normals = not show_normals
             update_scene()
-
-        return
 
     # Draw a first plot
     update_scene()
@@ -214,8 +211,6 @@ def show_neighbors(query, supports, neighbors):
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
         mlab.orientation_axes()
 
-        return
-
     def keyboard_callback(vtk_obj, event):
         global file_i
 
@@ -229,8 +224,6 @@ def show_neighbors(query, supports, neighbors):
             file_i = (file_i + 1) % len(query)
             update_scene()
 
-        return
-
     # Draw a first plot
     update_scene()
     fig1.scene.interactor.add_observer("KeyPressEvent", keyboard_callback)
@@ -238,11 +231,8 @@ def show_neighbors(query, supports, neighbors):
 
 
 def show_input_batch(batch):
-    from mayavi import mlab
 
-    ###########################
     # Interactive visualization
-    ###########################
     # Create figure for features
     fig1 = mlab.figure("Input", bgcolor=(1, 1, 1), size=(1000, 800))
     fig1.scene.parallel_projection = False
@@ -332,8 +322,6 @@ def show_input_batch(batch):
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.3)
         mlab.orientation_axes()
 
-        return
-
     def keyboard_callback(vtk_obj, event):
         global b_i, l_i, neighb_i, show_pools
 
@@ -376,8 +364,6 @@ def show_input_batch(batch):
                 show_pools = not show_pools
                 neighb_i = 0
             update_scene()
-
-        return
 
     # Draw a first plot
     update_scene()

@@ -1,19 +1,30 @@
+"""
+Plot functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, C0103, R0903
+
+
 import contextlib
 import os
 from pathlib import Path
 
-from kpconv_torch.utils.config import load_config
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from kpconv_torch.datasets.S3DIS import S3DISDataset
-from kpconv_torch.utils.metrics import (
+from kpconv_torch.datasets.s3dis_dataset import S3DISDataset
+from kpconv_torch.io.ply import read_ply
+from kpconv_torch.utils.config import load_config
+from kpconv_torch.utils.metrics_functions import (
     fast_confusion,
     IoU_from_confusions,
     smooth_metrics,
 )
-from kpconv_torch.io.ply import read_ply
 
 
 def listdir_str(path):
@@ -224,7 +235,6 @@ def compare_trainings(list_of_paths, list_of_labels=None):
             all_lr += [lr[np.floor(all_epochs[-1]).astype(np.int32)]]
 
     # Plots learning rate
-    # *******************
     if plot_lr:
         # Figure
         fig = plt.figure("lr")
@@ -244,7 +254,6 @@ def compare_trainings(list_of_paths, list_of_labels=None):
         ax.grid(linestyle="-.", which="both")
 
     # Plots loss
-    # **********
     # Figure
     fig = plt.figure("loss")
     for i, label in enumerate(list_of_labels):
@@ -264,8 +273,6 @@ def compare_trainings(list_of_paths, list_of_labels=None):
     ax.grid(linestyle="-.", which="both")
 
     # Plot Times
-    # **********
-
     # Figure
     fig = plt.figure("time")
     for i, label in enumerate(list_of_labels):
@@ -288,14 +295,12 @@ def compare_trainings(list_of_paths, list_of_labels=None):
 
 def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
     # Parameters
-    # **********
     smooth_n = 10
 
     if list_of_names is None:
         list_of_names = [str(i) for i in range(len(list_of_paths))]
 
     # Read Logs
-    # *********
     all_pred_epochs = []
     all_mIoUs = []
     all_class_IoUs = []
@@ -350,7 +355,6 @@ def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
         print(s)
 
     # Plots
-    # *****
     # Figure
     fig = plt.figure("mIoUs")
     for i, name in enumerate(list_of_names):
@@ -401,14 +405,12 @@ def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
 
 def compare_convergences_classif(list_of_paths, list_of_labels=None):
     # Parameters
-    # **********
     smooth_n = 12
 
     if list_of_labels is None:
         list_of_labels = [str(i) for i in range(len(list_of_paths))]
 
     # Read Logs
-    # *********
     all_pred_epochs = []
     all_val_OA = []
     all_vote_OA = []
@@ -448,7 +450,6 @@ def compare_convergences_classif(list_of_paths, list_of_labels=None):
     print()
 
     # Best scores
-    # ***********
     for i, label in enumerate(list_of_labels):
 
         print("\n" + label + "\n" + "*" * len(label) + "\n")
@@ -463,15 +464,6 @@ def compare_convergences_classif(list_of_paths, list_of_labels=None):
 
         confs = all_vote_confs[i]
 
-        """
-        s = ''
-        for cc in confs[best_epoch]:
-            for c in cc:
-                s += '{:.0f} '.format(c)
-            s += '\n'
-        print(s)
-        """
-
         TP_plus_FN = np.sum(confs, axis=-1, keepdims=True)
         class_avg_confs = confs.astype(np.float32) / TP_plus_FN.astype(np.float32)
         diags = np.diagonal(class_avg_confs, axis1=-2, axis2=-1)
@@ -480,7 +472,6 @@ def compare_convergences_classif(list_of_paths, list_of_labels=None):
         print(f"Corresponding mAcc : {100 * class_avg_ACC[best_epoch]:.1f} %")
 
     # Plots
-    # *****
     for fig_name, OA in zip(["Validation", "Vote"], [all_val_OA, all_vote_OA]):
 
         # Figure
@@ -577,15 +568,11 @@ def main(args):
 
 
 def plot(datapath: Path) -> None:
-    ######################################################
     # Choose a list of log to plot together for comparison
-    ######################################################
     # My logs: choose the logs to show
     logs, logs_names = experiment_name_1()
 
-    ################
     # Plot functions
-    ################
     # Check that all logs are of the same dataset. Different object can be compared
     plot_dataset = None
     config = None

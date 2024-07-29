@@ -1,3 +1,13 @@
+"""
+Class KPConv
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, C0103
+
 import math
 
 import torch
@@ -111,13 +121,6 @@ def global_average(x, batch_lengths):
     return torch.stack(averaged_features)
 
 
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#           KPConv class
-#       \******************/
-#
-
-
 class KPConv(nn.Module):
     def __init__(
         self,
@@ -211,13 +214,10 @@ class KPConv(nn.Module):
         # Initialize kernel points
         self.kernel_points = self.init_KP()
 
-        return
-
     def reset_parameters(self):
         kaiming_uniform_(self.weights, a=math.sqrt(5))
         if self.deformable:
             nn.init.zeros_(self.offset_bias)
-        return
 
     def init_KP(self):
         """
@@ -235,10 +235,7 @@ class KPConv(nn.Module):
 
     def forward(self, q_pts, s_pts, neighb_inds, x):
 
-        ###################
         # Offset generation
-        ###################
-
         if self.deformable:
 
             # Get offsets with a KPConv that only takes part of the features
@@ -268,10 +265,7 @@ class KPConv(nn.Module):
             offsets = None
             modulations = None
 
-        ######################
         # Deformed convolution
-        ######################
-
         # Add a fake point in the last row for shadow neighbors
         s_pts = torch.cat((s_pts, torch.zeros_like(s_pts[:1, :]) + 1e6), 0)
 
@@ -378,15 +372,10 @@ class KPConv(nn.Module):
         )
 
 
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#           Complex blocks
-#       \********************/
-#
-
-
 def block_decider(block_name, radius, in_dim, out_dim, layer_ind, config):
-
+    """
+    docstring to do
+    """
     if block_name == "unary":
         return UnaryBlock(
             in_dim,
@@ -395,7 +384,7 @@ def block_decider(block_name, radius, in_dim, out_dim, layer_ind, config):
             config["model"]["batch_norm_momentum"],
         )
 
-    elif block_name in [
+    if block_name in [
         "simple",
         "simple_deformable",
         "simple_invariant",
@@ -407,7 +396,7 @@ def block_decider(block_name, radius, in_dim, out_dim, layer_ind, config):
     ]:
         return SimpleBlock(block_name, in_dim, out_dim, radius, layer_ind, config)
 
-    elif block_name in [
+    if block_name in [
         "resnetb",
         "resnetb_invariant",
         "resnetb_equivariant",
@@ -419,17 +408,16 @@ def block_decider(block_name, radius, in_dim, out_dim, layer_ind, config):
     ]:
         return ResnetBottleneckBlock(block_name, in_dim, out_dim, radius, layer_ind, config)
 
-    elif block_name == "max_pool" or block_name == "max_pool_wide":
+    if block_name == "max_pool" or block_name == "max_pool_wide":
         return MaxPoolBlock(layer_ind)
 
-    elif block_name == "global_average":
+    if block_name == "global_average":
         return GlobalAverageBlock()
 
-    elif block_name == "nearest_upsample":
+    if block_name == "nearest_upsample":
         return NearestUpsampleBlock(layer_ind)
 
-    else:
-        raise ValueError("Unknown block name in the architecture definition : " + block_name)
+    raise ValueError("Unknown block name in the architecture definition : " + block_name)
 
 
 class BatchNormBlock(nn.Module):
@@ -451,7 +439,6 @@ class BatchNormBlock(nn.Module):
             self.batch_norm = nn.BatchNorm1d(in_dim, momentum=bn_momentum)  # or nn.InstanceNorm1d
         else:
             self.bias = Parameter(torch.zeros(in_dim, dtype=torch.float32), requires_grad=True)
-        return
 
     def reset_parameters(self):
         nn.init.zeros_(self.bias)
@@ -496,7 +483,6 @@ class UnaryBlock(nn.Module):
         self.batch_norm = BatchNormBlock(out_dim, self.use_bn, self.bn_momentum)
         if not no_relu:
             self.leaky_relu = nn.LeakyReLU(0.1)
-        return
 
     def forward(self, x, batch=None):
         x = self.mlp(x)
@@ -555,8 +541,6 @@ class SimpleBlock(nn.Module):
         # Other opperations
         self.batch_norm = BatchNormBlock(out_dim // 2, self.use_bn, self.bn_momentum)
         self.leaky_relu = nn.LeakyReLU(0.1)
-
-        return
 
     def forward(self, x, batch):
 
@@ -631,8 +615,6 @@ class ResnetBottleneckBlock(nn.Module):
         # Other operations
         self.leaky_relu = nn.LeakyReLU(0.1)
 
-        return
-
     def forward(self, features, batch):
 
         if "strided" in self.block_name:
@@ -701,7 +683,6 @@ class MaxPoolBlock(nn.Module):
         """
         super().__init__()
         self.layer_ind = layer_ind
-        return
 
     def forward(self, x, batch):
         return max_pool(x, batch.pools[self.layer_ind + 1])

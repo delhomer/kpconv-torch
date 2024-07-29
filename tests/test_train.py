@@ -15,8 +15,8 @@ from shutil import rmtree
 import numpy as np
 from pytest import mark
 
+from kpconv_torch.io import io
 from kpconv_torch.utils.config import load_config
-from kpconv_torch.utils import tester, trainer
 from kpconv_torch import test, train
 
 
@@ -26,14 +26,14 @@ def test_get_test_save_path(fixture_path):
     - needs a "chosen_log" folder
     - optionally uses a "infered_file" path
     """
-    assert tester.get_test_save_path(infered_file=None, chosen_log=None) is None
+    assert io.get_test_save_path(infered_file=None, chosen_log=None) is None
     log_dir = Path(__file__).parent / "Log_test"
     infered_file = fixture_path / "example.ply"
-    test_path = tester.get_test_save_path(infered_file=infered_file, chosen_log=log_dir)
+    test_path = io.get_test_save_path(infered_file=infered_file, chosen_log=log_dir)
     assert test_path == fixture_path / "test" / "Log_test"
     assert test_path.exists()
     rmtree(test_path)
-    test_path = tester.get_test_save_path(infered_file=None, chosen_log=log_dir)
+    test_path = io.get_test_save_path(infered_file=None, chosen_log=log_dir)
     assert test_path == Path(log_dir) / "test"
     assert test_path.exists()
     rmtree(test_path)
@@ -41,14 +41,14 @@ def test_get_test_save_path(fixture_path):
 
 def test_get_train_save_path():
     """Function get_train_save_path"""
-    assert trainer.get_train_save_path(output_dir=None, chosen_log=None) is None
+    assert io.get_train_save_path(output_dir=None, chosen_log=None) is None
     log_dir = Path(__file__).parent / "Log_test"
-    train_path = trainer.get_train_save_path(output_dir=None, chosen_log=log_dir)
+    train_path = io.get_train_save_path(output_dir=None, chosen_log=log_dir)
     assert log_dir == train_path
     assert Path(train_path).exists()
     rmtree(log_dir)
     output_dir = Path(__file__).parent / "outputdir"
-    train_path = trainer.get_train_save_path(output_dir=output_dir, chosen_log=None)
+    train_path = io.get_train_save_path(output_dir=output_dir, chosen_log=None)
     assert Path(train_path).exists()
     log_dirs = list(Path(output_dir).iterdir())
     assert len(log_dirs) == 1
