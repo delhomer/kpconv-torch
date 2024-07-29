@@ -1,3 +1,13 @@
+"""
+Tests configuration
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, E0401, C0116, W0621, R1708
+
 from pathlib import Path
 from shutil import rmtree
 

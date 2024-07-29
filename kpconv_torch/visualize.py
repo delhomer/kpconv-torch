@@ -1,3 +1,13 @@
+"""
+Models visualizing functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915
+
 from pathlib import Path
 import os
 import time
@@ -6,59 +16,28 @@ from kpconv_torch.utils.config import load_config
 import numpy as np
 from torch.utils.data import DataLoader
 
-from kpconv_torch.datasets.ModelNet40 import (
-    ModelNet40Collate,
-    ModelNet40Dataset,
-    ModelNet40Sampler,
-)
-from kpconv_torch.datasets.S3DIS import (
-    S3DISCollate,
-    S3DISDataset,
-    S3DISSampler,
-)
+
+from kpconv_torch.datasets.modelnet40_dataset import ModelNet40Dataset
+from kpconv_torch.datasets.modelnet40_sampler import ModelNet40Sampler
+from kpconv_torch.datasets.modelnet40_custom_batch import modelnet40_collate
+from kpconv_torch.datasets.s3dis_dataset import S3DISDataset
+from kpconv_torch.datasets.s3dis_sampler import S3DISSampler
+from kpconv_torch.datasets.s3dis_custom_batch import s3dis_collate
 from kpconv_torch.models.architectures import KPCNN, KPFCNN
 from kpconv_torch.utils.visualizer import ModelVisualizer
 
 
-def model_choice(chosen_log):
-
-    ###########################
-    # Call the test initializer
-    ###########################
-
-    # Automatically retrieve the last trained model
-    if chosen_log in ["last_ModelNet40", "last_ShapeNetPart", "last_S3DIS"]:
-
-        # Dataset name
-        test_dataset = "_".join(chosen_log.split("_")[1:])
-
-        # List all training logs
-        logs = np.sort(
-            [os.path.join("results", f) for f in os.listdir("results") if f.startswith("Log")]
-        )
-
-        # Find the last log of asked dataset
-        for log in logs[::-1]:
-            log_config = load_config(log)
-            if log_config["dataset"] == test_dataset:
-                chosen_log = log
-                break
-
-        if chosen_log in ["last_ModelNet40", "last_ShapeNetPart", "last_S3DIS"]:
-            raise ValueError('No log of the dataset "' + test_dataset + '" found')
-
-    # Check if log exists
-    if not os.path.exists(chosen_log):
-        raise ValueError("The given log does not exists: " + chosen_log)
-
-    return chosen_log
-
-
 def main(args):
+    """
+    Launch the visualization from the CLI arguments
+    """
     visualize(args.dataset, args.datapath, args.chosen_log)
 
 
 def visualize(dataset: str, datapath: Path, chosen_log: Path) -> None:
+    """
+    Visualization of the training results
+    """
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = None
@@ -68,22 +47,16 @@ def visualize(dataset: str, datapath: Path, chosen_log: Path) -> None:
     deform_idx = 0
 
     # Deal with 'last_XXX' choices
-    chosen_log = model_choice(chosen_log)
+    chosen_log = chosen_log
 
-    ############################
     # Initialize the environment
-    ############################
-
     # Set which gpu is going to be used
-    GPU_ID = "0"
+    gpu_id = "0"
 
     # Set GPU visible device
-    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
+    os.environ["cuda_visible_devices"] = gpu_id
 
-    ###############
     # Previous chkp
-    ###############
-
     # Find all checkpoints in the chosen training folder
     chkp_path = os.path.join(chosen_log, "checkpoints")
     chkps = [f for f in os.listdir(chkp_path) if f[:4] == "chkp"]
@@ -98,20 +71,14 @@ def visualize(dataset: str, datapath: Path, chosen_log: Path) -> None:
     # Initialize configuration class
     config = load_config(chosen_log)
 
-    ##################################
     # Change model parameters for test
-    ##################################
-
     # Change parameters for the test here. For example, you can stop augmenting the input data.
     config["train"]["augment_noise"] = 0.0001
     config["train"]["batch_num"] = 1
     config["train"]["sphere_radius"] = 2.0
     config["input"]["threads"] = 0
 
-    ##############
     # Prepare Data
-    ##############
-
     print()
     print("Data Preparation")
     print("****************")
@@ -120,11 +87,11 @@ def visualize(dataset: str, datapath: Path, chosen_log: Path) -> None:
     if dataset == "ModelNet40":
         test_dataset = ModelNet40Dataset(config=config, datapath=datapath, train=False)
         test_sampler = ModelNet40Sampler(test_dataset)
-        collate_fn = ModelNet40Collate
+        collate_fn = modelnet40_collate
     elif dataset == "S3DIS":
         test_dataset = S3DISDataset(config=config, datapath=datapath, task="validate")
         test_sampler = S3DISSampler(test_dataset)
-        collate_fn = S3DISCollate
+        collate_fn = s3dis_collate
     else:
         raise ValueError("Unsupported dataset : " + config["model"]["dataset"])
 
@@ -160,5 +127,5 @@ def visualize(dataset: str, datapath: Path, chosen_log: Path) -> None:
     print("\nStart visualization")
     print("*********************")
 
-    # Training
+    # Visualizing
     visualizer.show_deformable_kernels(net, test_loader, deform_idx)

@@ -1,3 +1,13 @@
+"""
+Reading / writing PLY file functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915
+
 import sys
 
 import numpy as np

@@ -1,3 +1,13 @@
+"""
+Reading and writing files tests
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, E0401
+
 import numpy as np
 
 from kpconv_torch.io import las, ply, xyz
@@ -6,6 +16,9 @@ from kpconv_torch.io import las, ply, xyz
 def test_write_ply_with_classification(
     fixture_path, points_array, colors_array, classification_array
 ):
+    """
+    Write a PLY file containing points, colors and classification
+    """
     example_filepath = fixture_path / "example_with_classification.ply"
     res = ply.write_ply(
         str(example_filepath),
@@ -24,6 +37,9 @@ def test_write_ply_with_classification(
 
 
 def test_write_ply_without_classification(fixture_path, points_array, colors_array):
+    """
+    Write a PLY file containing only points and colors
+    """
     example_filepath = fixture_path / "example_without_classification.ply"
     res = ply.write_ply(
         str(example_filepath),
@@ -42,6 +58,9 @@ def test_write_ply_without_classification(fixture_path, points_array, colors_arr
 def test_write_las_with_classification(
     fixture_path, points_array, colors_array, classification_array
 ):
+    """
+    Write a LAS file containing points, colors and classification
+    """
     example_filepath = fixture_path / "example_with_classification.las"
     res = las.write_las(str(example_filepath), points_array, colors_array, classification_array)
     assert res and example_filepath.exists()
@@ -56,6 +75,9 @@ def test_write_las_with_classification(
 
 
 def test_write_las_without_classification(fixture_path, points_array, colors_array):
+    """
+    Write a LAS file containing only points and colors
+    """
     example_filepath = fixture_path / "example_without_classification.las"
     res = las.write_las(str(example_filepath), points_array, colors_array)
     assert res and example_filepath.exists()
@@ -68,6 +90,9 @@ def test_write_las_without_classification(fixture_path, points_array, colors_arr
 
 
 def test_write_xyz_without_classification(fixture_path, points_array, colors_array):
+    """
+    Write an XYZ file containing only points and colors
+    """
     example_filepath = fixture_path / "example_without_classification.xyz"
     res = xyz.write_xyz(str(example_filepath), points_array, colors_array)
     assert res and example_filepath.exists()
@@ -82,6 +107,9 @@ def test_write_xyz_without_classification(fixture_path, points_array, colors_arr
 def test_write_xyz_with_classification(
     fixture_path, points_array, colors_array, classification_array
 ):
+    """
+    Write an XYZ file containing points, colors and classification
+    """
     example_filepath = fixture_path / "example_with_classification.xyz"
     res = xyz.write_xyz(str(example_filepath), points_array, colors_array, classification_array)
     assert res and example_filepath.exists()
@@ -96,6 +124,9 @@ def test_write_xyz_with_classification(
 
 
 def test_read_xyz_without_classification(fixture_path, points_array, colors_array):
+    """
+    Read an XYZ file containing only points and colors
+    """
     example_filepath = fixture_path / "example_without_classification.xyz"
     points, colors, _ = xyz.read_xyz(example_filepath)
     np.testing.assert_array_equal(points_array, points)
@@ -105,6 +136,9 @@ def test_read_xyz_without_classification(fixture_path, points_array, colors_arra
 def test_read_xyz_with_classification(
     fixture_path, points_array, colors_array, classification_array
 ):
+    """
+    Read an XYZ file containing points, colors and classification
+    """
     example_filepath = fixture_path / "example_with_classification.xyz"
     points, colors, classification = xyz.read_xyz(example_filepath)
     np.testing.assert_array_equal(points_array, points)
@@ -113,6 +147,9 @@ def test_read_xyz_with_classification(
 
 
 def test_read_ply_without_classification(fixture_path, points_array, colors_array):
+    """
+    Read a PLY file containing only points and colors
+    """
     example_filepath = fixture_path / "example_without_classification.ply"
     points, colors, _ = ply.read_ply(example_filepath)
     np.testing.assert_array_equal(points_array, points)
@@ -122,6 +159,9 @@ def test_read_ply_without_classification(fixture_path, points_array, colors_arra
 def test_read_ply_with_classification(
     fixture_path, points_array, colors_array, classification_array
 ):
+    """
+    Read a PLY file containing points, colors and classification
+    """
     example_filepath = fixture_path / "example_with_classification.ply"
     points, colors, classification = ply.read_ply(example_filepath)
     np.testing.assert_array_equal(points_array, points)
@@ -130,6 +170,9 @@ def test_read_ply_with_classification(
 
 
 def test_read_las_without_classification(fixture_path, points_array, colors_array):
+    """
+    Read a LAS file containing only points and colors
+    """
     example_filepath = fixture_path / "example_without_classification.las"
     points, colors, _ = las.read_las_laz(example_filepath)
     np.testing.assert_array_equal(points_array, points)
@@ -139,6 +182,9 @@ def test_read_las_without_classification(fixture_path, points_array, colors_arra
 def test_read_las_with_classification(
     fixture_path, points_array, colors_array, classification_array
 ):
+    """
+    Read a LAS file containing points, colors and classification
+    """
     example_filepath = fixture_path / "example_with_classification.las"
     points, colors, classification = las.read_las_laz(example_filepath)
     np.testing.assert_array_equal(points_array, points)

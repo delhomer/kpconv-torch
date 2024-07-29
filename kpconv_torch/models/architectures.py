@@ -1,10 +1,22 @@
+"""
+Class KPCNN / class KPFCNN
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915, E0401, C0103
+
 import numpy as np
 
 from kpconv_torch.models.blocks import block_decider, KPConv, nn, torch, UnaryBlock
 
 
 def p2p_fitting_regularizer(net):
-
+    """
+    docstring to do
+    """
     fitting_loss = 0
     repulsive_loss = 0
 
@@ -12,10 +24,7 @@ def p2p_fitting_regularizer(net):
 
         if isinstance(m, KPConv) and m.deformable:
 
-            ##############
             # Fitting loss
-            ##############
-
             # Get the distance to closest input point and normalize to be independant from layers
             KP_min_d2 = m.min_d2 / (m.KP_extent**2)
 
@@ -23,10 +32,7 @@ def p2p_fitting_regularizer(net):
             # We use L1 because dist is already squared
             fitting_loss += net.l1(KP_min_d2, torch.zeros_like(KP_min_d2))
 
-            ################
             # Repulsive loss
-            ################
-
             # Normalized KP locations
             KP_locs = m.deformed_KP / m.KP_extent
 
@@ -50,10 +56,7 @@ class KPCNN(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        #####################
         # Network opperations
-        #####################
-
         # Current radius of convolution and feature dimension
         layer = 0
         r = config["kpconv"]["first_subsampling_dl"] * config["kpconv"]["conv_radius"]
@@ -95,10 +98,7 @@ class KPCNN(nn.Module):
         self.head_mlp = UnaryBlock(out_dim, 1024, False, 0)
         self.head_softmax = UnaryBlock(1024, self.num_classes, False, 0, no_relu=True)
 
-        ################
         # Network Losses
-        ################
-
         self.criterion = torch.nn.CrossEntropyLoss()
         self.deform_fitting_mode = config["kpconv"]["deform_fitting_mode"]
         self.deform_fitting_power = config["kpconv"]["deform_fitting_power"]
@@ -108,9 +108,10 @@ class KPCNN(nn.Module):
         self.reg_loss = 0
         self.l1 = nn.L1Loss()
 
-        return
-
-    def forward(self, batch, config):
+    def forward(self, batch):
+        """
+        docstring to do
+        """
 
         # Save all block operations in a list of modules
         x = batch.features.clone().detach()
@@ -137,13 +138,13 @@ class KPCNN(nn.Module):
         # Regularization of deformable offsets
         if self.deform_fitting_mode == "point2point":
             self.reg_loss = p2p_fitting_regularizer(self)
-        elif self.deform_fitting_mode == "point2plane":
-            raise ValueError("point2plane fitting mode not implemented yet.")
-        else:
-            raise ValueError("Unknown fitting mode: " + self.deform_fitting_mode)
+            # Combined loss
+            return self.output_loss + self.reg_loss
 
-        # Combined loss
-        return self.output_loss + self.reg_loss
+        if self.deform_fitting_mode == "point2plane":
+            raise ValueError("point2plane fitting mode not implemented yet.")
+
+        raise ValueError("Unknown fitting mode: " + self.deform_fitting_mode)
 
     @staticmethod
     def accuracy(outputs, labels):
@@ -169,10 +170,7 @@ class KPFCNN(nn.Module):
     def __init__(self, config, lbl_values, ign_lbls):
         super().__init__()
 
-        ############
         # Parameters
-        ############
-
         # Current radius of convolution and feature dimension
         layer = 0
         r = config["kpconv"]["first_subsampling_dl"] * config["kpconv"]["conv_radius"]
@@ -181,10 +179,7 @@ class KPFCNN(nn.Module):
         self.K = config["kpconv"]["num_kernel_points"]
         self.C = len(lbl_values) - len(ign_lbls)
 
-        #####################
         # List Encoder blocks
-        #####################
-
         # Save all block operations in a list of modules
         self.encoder_blocks = nn.ModuleList()
         self.encoder_skip_dims = []
@@ -222,10 +217,7 @@ class KPFCNN(nn.Module):
                 r *= 2
                 out_dim *= 2
 
-        #####################
         # List Decoder blocks
-        #####################
-
         # Save all block operations in a list of modules
         self.decoder_blocks = nn.ModuleList()
         self.decoder_concats = []
@@ -263,10 +255,7 @@ class KPFCNN(nn.Module):
             config["model"]["first_features_dim"], self.C, False, 0, no_relu=True
         )
 
-        ################
         # Network Losses
-        ################
-
         # List of valid labels (those not ignored in loss)
         self.valid_labels = np.sort([c for c in lbl_values if c not in ign_lbls])
 
@@ -285,10 +274,10 @@ class KPFCNN(nn.Module):
         self.reg_loss = 0
         self.l1 = nn.L1Loss()
 
-        return
-
-    def forward(self, batch, config):
-
+    def forward(self, batch):
+        """
+        docstring to do
+        """
         # Get input features
         x = batch.features.clone().detach()
 
@@ -332,13 +321,13 @@ class KPFCNN(nn.Module):
         # Regularization of deformable offsets
         if self.deform_fitting_mode == "point2point":
             self.reg_loss = p2p_fitting_regularizer(self)
-        elif self.deform_fitting_mode == "point2plane":
-            raise ValueError("point2plane fitting mode not implemented yet.")
-        else:
-            raise ValueError("Unknown fitting mode: " + self.deform_fitting_mode)
+            # Combined loss
+            return self.output_loss + self.reg_loss
 
-        # Combined loss
-        return self.output_loss + self.reg_loss
+        if self.deform_fitting_mode == "point2plane":
+            raise ValueError("point2plane fitting mode not implemented yet.")
+
+        raise ValueError("Unknown fitting mode: " + self.deform_fitting_mode)
 
     def accuracy(self, outputs, labels):
         """
