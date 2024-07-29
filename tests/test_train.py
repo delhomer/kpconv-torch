@@ -148,7 +148,7 @@ def test_test_validation_case(dataset_path, training_log):
     """
     test.test(
         dataset_path,
-        Path("tests/config_S3DIS.yml"),
+        Path("tests/config_s3dis.yml"),
         None,
         training_log,
     )
