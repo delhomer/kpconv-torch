@@ -27,7 +27,7 @@ def valid_dataset(dataset):
 
 
 def save_config(train_save_path, config):
-    with open(Path(train_save_path / "config.yml"), "w") as file_object:
+    with open(Path(train_save_path) / "config.yml", "w") as file_object:
         yaml.dump(config, file_object)
 
 
