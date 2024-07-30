@@ -711,7 +711,7 @@ class NPM3DDataset(PointCloudDataset):
                     labels_ = labels
 
                 # Subsample cloud
-                sub_points, sub_labels = grid_subsampling(points_, labels=labels_, sampledl=dl)
+                sub_points, sub_labels = grid_subsampling(points_, labels=labels_, sampleDl=dl)
                 sub_labels = np.squeeze(sub_labels)
 
                 # Get chosen neighborhoods
@@ -758,7 +758,7 @@ class NPM3DDataset(PointCloudDataset):
                 else:
                     # Subsample cloud
                     sub_points = np.array(self.input_trees[file_idx].data, copy=False)
-                    coarse_points = grid_subsampling(sub_points.astype(np.float32), sampledl=pot_dl)
+                    coarse_points = grid_subsampling(sub_points.astype(np.float32), sampleDl=pot_dl)
 
                     # Get chosen neighborhoods
                     search_tree = KDTree(coarse_points, leaf_size=10)

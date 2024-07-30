@@ -173,12 +173,12 @@ def train(
 
     if config["dataset"] == "SemanticKitti":
         # Calibrate max_in_point value
-        train_sampler.calib_max_in(config, train_loader, verbose=True)
-        test_sampler.calib_max_in(config, test_loader, verbose=True)
+        train_sampler.calib_max_in(train_loader, verbose=True)
+        test_sampler.calib_max_in(test_loader, verbose=True)
 
     # Calibrate samplers
-    train_sampler.calibration(config, train_loader, verbose=True)
-    test_sampler.calibration(config, test_loader, verbose=True)
+    train_sampler.calibration(train_loader, verbose=True)
+    test_sampler.calibration(test_loader, verbose=True)
 
     print("\nModel Preparation")
     print("*****************")

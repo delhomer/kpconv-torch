@@ -701,7 +701,7 @@ class Toronto3DDataset(PointCloudDataset):
 
                 # Subsample cloud
                 sub_points, sub_colors, sub_labels = grid_subsampling(
-                    points_, features=colors_, labels=labels_, sampledl=dl
+                    points_, features=colors_, labels=labels_, sampleDl=dl
                 )
 
                 # Rescale float color and squeeze label
@@ -766,7 +766,7 @@ class Toronto3DDataset(PointCloudDataset):
                 else:
                     # Subsample cloud
                     sub_points = np.array(self.input_trees[file_idx].data, copy=False)
-                    coarse_points = grid_subsampling(sub_points.astype(np.float32), sampledl=pot_dl)
+                    coarse_points = grid_subsampling(sub_points.astype(np.float32), sampleDl=pot_dl)
 
                     # Get chosen neighborhoods
                     search_tree = KDTree(coarse_points, leaf_size=10)

@@ -678,7 +678,7 @@ class S3DISDataset(PointCloudDataset):
                 points,
                 features=colors,
                 labels=labels,
-                sampledl=self.config["kpconv"]["first_subsampling_dl"],
+                sampleDl=self.config["kpconv"]["first_subsampling_dl"],
             )
 
             # Rescale float color and squeeze label
@@ -731,7 +731,7 @@ class S3DISDataset(PointCloudDataset):
             # Subsample cloud
             sub_points = np.array(kdtree_data, copy=False)
             coarse_points = grid_subsampling(
-                sub_points.astype(np.float32), sampledl=self.config["input"]["sphere_radius"] / 10
+                sub_points.astype(np.float32), sampleDl=self.config["input"]["sphere_radius"] / 10
             )
 
             # Get chosen neighborhoods

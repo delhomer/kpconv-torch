@@ -134,7 +134,7 @@ class ModelNet40Sampler(Sampler):
 
         return 0
 
-    def calibration(self, config, dataloader, untouched_ratio=0.9, verbose=False):
+    def calibration(self, dataloader, untouched_ratio=0.9, verbose=False):
         """
         Method performing batch and neighbors calibration.
 
@@ -162,8 +162,8 @@ class ModelNet40Sampler(Sampler):
             batch_lim_dict = {}
 
         # Check if the batch limit associated with current parameters exists
-        t = config["kpconv"]["first_subsampling_dl"]
-        s = config["train"]["batch_num"]
+        t = self.dataset.config["kpconv"]["first_subsampling_dl"]
+        s = self.dataset.config["train"]["batch_num"]
         key = f"{t:.3f}_{s:d}"
         if key in batch_lim_dict:
             self.batch_limit = batch_lim_dict[key]
@@ -204,7 +204,7 @@ class ModelNet40Sampler(Sampler):
             if key in neighb_lim_dict:
                 neighb_limits += [neighb_lim_dict[key]]
 
-        if len(neighb_limits) == config["model"]["num_layers"]:
+        if len(neighb_limits) == self.dataset.config["model"]["num_layers"]:
             self.dataset.neighborhood_limits = neighb_limits
         else:
             redo = True

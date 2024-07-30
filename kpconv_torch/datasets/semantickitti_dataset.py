@@ -302,7 +302,7 @@ class SemanticKittiDataset(PointCloudDataset):
                 merged_points,
                 features=merged_coords,
                 labels=merged_labels,
-                sampledl=self.config["kpconv"]["first_subsampling_dl"],
+                sampleDl=self.config["kpconv"]["first_subsampling_dl"],
             )
 
             t += [time.time()]

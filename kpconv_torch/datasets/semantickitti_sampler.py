@@ -162,7 +162,7 @@ class SemanticKittiSampler(Sampler):
         """
         return self.n_
 
-    def calib_max_in(self, config, dataloader, untouched_ratio=0.8, verbose=True, force_redo=False):
+    def calib_max_in(self, dataloader, untouched_ratio=0.8, verbose=True, force_redo=False):
         """
         Method performing batch and neighbors calibration.
 
@@ -263,9 +263,9 @@ class SemanticKittiSampler(Sampler):
 
         # Update value in config
         if self.dataset.task == "train":
-            config.max_in_points = self.dataset.max_in_p
+            self.dataset.config.max_in_points = self.dataset.max_in_p
         else:
-            config.max_val_points = self.dataset.max_in_p
+            self.dataset.config.max_val_points = self.dataset.max_in_p
 
         print(f"Calibration done in {time.time() - t0:.1f}s\n")
 

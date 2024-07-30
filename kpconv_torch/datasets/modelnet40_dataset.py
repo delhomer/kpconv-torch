@@ -196,7 +196,7 @@ class ModelNet40Dataset(PointCloudDataset):
                     points, normals = grid_subsampling(
                         data[:, :3],
                         features=data[:, 3:],
-                        sampledl=self.config["kpconv"]["first_subsampling_dl"],
+                        sampleDl=self.config["kpconv"]["first_subsampling_dl"],
                     )
                 else:
                     points = data[:, :3]

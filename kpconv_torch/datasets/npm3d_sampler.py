@@ -217,7 +217,7 @@ class NPM3DSampler(Sampler):
             if breaking:
                 break
 
-    def calibration(self, config, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
+    def calibration(self, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
         """
         Method performing batch and neighbors calibration.
 
@@ -245,7 +245,7 @@ class NPM3DSampler(Sampler):
             batch_lim_dict = {}
 
         # Check if the batch limit associated with current parameters exists
-        if config["input"]["use_potentials"]:
+        if self.dataset.config["input"]["use_potentials"]:
             sampler_method = "potentials"
         else:
             sampler_method = "random"
@@ -485,14 +485,14 @@ class NPM3DSampler(Sampler):
                 print()
 
             # Save batch_limit dictionary
-            if config["input"]["use_potentials"]:
+            if self.dataset.config["input"]["use_potentials"]:
                 sampler_method = "potentials"
             else:
                 sampler_method = "random"
 
-            t1 = config["input"]["sphere_radius"]
-            t2 = config["kpconv"]["first_subsampling_dl"]
-            t3 = config["train"]["batch_num"]
+            t1 = self.dataset.config["input"]["sphere_radius"]
+            t2 = self.dataset.config["kpconv"]["first_subsampling_dl"]
+            t3 = self.dataset.config["train"]["batch_num"]
 
             key = f"{sampler_method}_{t1:3f}_" f"{t2:3f}_" f"{t3:d}"
             batch_lim_dict[key] = float(self.dataset.batch_limit)
