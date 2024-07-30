@@ -15,6 +15,17 @@ class bcolors:
     UNDERLINE = "\033[4m"
 
 
+SUPPORTED_DATASETS = {"ModelNet40", "NPM3D", "S3DIS", "SemanticKitti", "Toronto3D"}
+
+
+def valid_dataset(dataset):
+    if dataset not in SUPPORTED_DATASETS:
+        raise ValueError(
+            f"{dataset} dataset is unknown, please choose amongst {SUPPORTED_DATASETS}."
+        )
+    return dataset
+
+
 def save_config(train_save_path, config):
     with open(Path(train_save_path / "config.yml"), "w") as file_object:
         yaml.dump(config, file_object)
@@ -27,10 +38,6 @@ def load_config(file_path):
         config = yaml.load(file_object, Loader=yaml.SafeLoader)
 
     # Check if dataset exists
-    dataset = config["dataset"]
-    if dataset not in ("ModelNet40", "NPM3D", "S3DIS", "SemanticKitti", "Toronto3D"):
-        raise ValueError(
-            f"Error - unsupported dataset {dataset}, must be\
-            among ModelNet40, NPM3D, S3DIS, SemanticKitti, Toronto3D"
-        )
+    valid_dataset(config["dataset"])
+
     return config
