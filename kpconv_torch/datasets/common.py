@@ -357,22 +357,19 @@ class PointCloudDataset(Dataset):
 
         if normals is None:
             return augmented_points, scale, R
-        else:
-            # Anisotropic scale of the normals thanks to cross product formula
-            normal_scale = scale[[1, 2, 0]] * scale[[2, 0, 1]]
-            augmented_normals = np.dot(normals, R) * normal_scale
-            # Renormalise
-            augmented_normals *= 1 / (
-                np.linalg.norm(augmented_normals, axis=1, keepdims=True) + 1e-6
-            )
 
-            if verbose:
-                test_p = [np.vstack([points, augmented_points])]
-                test_n = [np.vstack([normals, augmented_normals])]
-                test_l = [np.hstack([points[:, 2] * 0, augmented_points[:, 2] * 0 + 1])]
-                show_ModelNet_examples(test_p, test_n, test_l)
+        # Anisotropic scale of the normals thanks to cross product formula
+        normal_scale = scale[[1, 2, 0]] * scale[[2, 0, 1]]
+        augmented_normals = np.dot(normals, R) * normal_scale
+        # Renormalise
+        augmented_normals *= 1 / (np.linalg.norm(augmented_normals, axis=1, keepdims=True) + 1e-6)
 
-            return augmented_points, augmented_normals, scale, R
+        if verbose:
+            test_p = [np.vstack([points, augmented_points])]
+            test_n = [np.vstack([normals, augmented_normals])]
+            test_l = [np.hstack([points[:, 2] * 0, augmented_points[:, 2] * 0 + 1])]
+            show_ModelNet_examples(test_p, test_n, test_l)
+        return augmented_points, augmented_normals, scale, R
 
     def big_neighborhood_filter(self, neighbors, layer):
         """Filter neighborhoods with max number of neighbors. Limit is set to keep XX% of the
