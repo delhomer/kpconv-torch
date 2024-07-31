@@ -271,10 +271,10 @@ class KPFCNN(nn.Module):
         self.valid_labels = np.sort([c for c in lbl_values if c not in ign_lbls])
 
         # Choose segmentation loss
-        if len(config["train"]["class_w"]) > 0:
-            self.criterion = torch.nn.CrossEntropyLoss(
-                weight=config["train"]["class_w"], ignore_index=-1
-            )
+        if (config["train"]["class_w"] is not None) and (len(config["train"]["class_w"]) > 0):
+            class_w = torch.from_numpy(np.array(config["train"]["class_w"], dtype=np.float32))
+            self.criterion = torch.nn.CrossEntropyLoss(weight=class_w, ignore_index=-1)
+
         else:
             self.criterion = torch.nn.CrossEntropyLoss(ignore_index=-1)
         self.deform_fitting_mode = config["kpconv"]["deform_fitting_mode"]
