@@ -1,9 +1,10 @@
+from enum import Enum
 import yaml
 
 from pathlib import Path
 
 
-class bcolors:
+class BColors(Enum):
     HEADER = "\033[95m"
     OKBLUE = "\033[94m"
     OKCYAN = "\033[96m"
