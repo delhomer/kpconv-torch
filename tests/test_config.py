@@ -14,11 +14,11 @@ def test_valid_dataset():
 
 
 def test_load_config():
-    assert load_config("tests/config_S3DIS.yml")["dataset"] == "S3DIS"
+    assert load_config("tests/tests_config_S3DIS.yml")["dataset"] == "S3DIS"
 
 
 def test_save_config():
-    config = load_config("tests/config_S3DIS.yml")
+    config = load_config("tests/tests_config_S3DIS.yml")
     config["input"]["test_new_item"] = "new"
 
     save_config("tests", config)

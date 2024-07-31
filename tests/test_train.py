@@ -76,7 +76,7 @@ def test_train(dataset_path, trained_model_path):
     # First run
     train.train(
         dataset_path,
-        Path("tests/config_S3DIS.yml"),
+        Path("tests/tests_config_S3DIS.yml"),
         chosen_log=None,
         output_dir=trained_model_path,
     )
@@ -85,7 +85,7 @@ def test_train(dataset_path, trained_model_path):
     assert len(log_dirs) == 1
     log_dir = log_dirs[0]
 
-    config = load_config(Path("tests/config_S3DIS.yml"))
+    config = load_config(Path("tests/tests_config_S3DIS.yml"))
     assert (log_dir / "config.yml").exists()
     assert (log_dir / "training.txt").exists()
     assert (log_dir / "checkpoints" / "current_chkp.tar").exists()
@@ -141,7 +141,7 @@ def test_test_validation_case(dataset_path, training_log):
     """
     test.test(
         dataset_path,
-        Path("tests/config_S3DIS.yml"),
+        Path("tests/tests_config_S3DIS.yml"),
         None,
         training_log,
     )
@@ -170,7 +170,7 @@ def test_test_inference_case(dataset_path, inference_file, training_log):
     """
     test.test(
         dataset_path,
-        Path("tests/config_S3DIS.yml"),
+        Path("tests/tests_config_S3DIS.yml"),
         inference_file,
         training_log,
     )
