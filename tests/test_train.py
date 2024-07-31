@@ -151,7 +151,7 @@ def test_test_validation_case(dataset_path, training_log):
 
 
 @mark.dependency(depends=["test_train"])
-def test_test_inference_case(dataset_path, inference_file, training_log):
+def test_test_inference_case(dataset_path, inference_file, training_log, fixture_path):
     """Functional test for inference process
 
     Second case: inference on an unknown dataset.
@@ -192,3 +192,10 @@ def test_test_inference_case(dataset_path, inference_file, training_log):
 
     # Clean out the inference folder
     rmtree(inference_file.parent / "test")
+    rmtree(fixture_path / "S3DIS" / "input_0.030")
+    rmtree(fixture_path / "S3DIS" / "original_ply")
+    rmtree(fixture_path / "S3DIS" / "calibration")
+    for p in Path(inference_file.parent).glob("Area4_hallway5.ply_*"):
+        p.unlink()
+    for p in Path(inference_file.parent).glob("Area4_hallway5.ply.*"):
+        p.unlink()
