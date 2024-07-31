@@ -60,6 +60,11 @@ def test(
         config_file_path = Path(chosen_log / "config.yml")
     config = load_config(config_file_path)
 
+    if "validation_size" not in config["test"]:
+        # consider a default value if not specified
+        config["test"]["validation_size"] = 200
+    config["input"]["threads"] = 10
+
     ############################
     # Initialize the environment
     ############################

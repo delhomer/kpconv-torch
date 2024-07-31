@@ -416,7 +416,7 @@ def compare_convergences_classif(list_of_paths, list_of_labels=None):
 
     for path in list_of_paths:
         # Load parameters
-        config = load_config(list_of_paths[0])
+        config = load_config(path)
 
         # Get the number of classes
         n_class = len(config["model"]["label_to_names"])
