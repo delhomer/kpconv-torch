@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import get_worker_info, Sampler
 
 from kpconv_torch.datasets.common import grid_subsampling, PointCloudDataset
-from kpconv_torch.utils.config import bcolors
+from kpconv_torch.utils.config import BColors
 from kpconv_torch.utils.mayavi_visu import show_input_batch
 from kpconv_torch.io.ply import read_ply, write_ply
 
@@ -234,7 +234,7 @@ class NPM3DDataset(PointCloudDataset):
                 message = ""
                 for wi in range(info.num_workers):
                     if wi == wid:
-                        message += f" {bcolors.FAIL}X{bcolors.ENDC} "
+                        message += f" {BColors.FAIL}X{BColors.ENDC} "
                     elif self.worker_waiting[wi] == 0:
                         message += "   "
                     elif self.worker_waiting[wi] == 1:
@@ -250,7 +250,7 @@ class NPM3DDataset(PointCloudDataset):
                     message = ""
                     for wi in range(info.num_workers):
                         if wi == wid:
-                            message += f" {bcolors.OKGREEN}v{bcolors.ENDC} "
+                            message += f" {BColors.OKGREEN}v{BColors.ENDC} "
                         elif self.worker_waiting[wi] == 0:
                             message += "   "
                         elif self.worker_waiting[wi] == 1:
@@ -400,7 +400,7 @@ class NPM3DDataset(PointCloudDataset):
             message = ""
             for wi in range(info.num_workers):
                 if wi == wid:
-                    message += f" {bcolors.OKBLUE}0{bcolors.ENDC} "
+                    message += f" {BColors.OKBLUE}0{BColors.ENDC} "
                 elif self.worker_waiting[wi] == 0:
                     message += "   "
                 elif self.worker_waiting[wi] == 1:
@@ -1083,12 +1083,12 @@ class NPM3DSampler(Sampler):
             print("\nPrevious calibration found:")
             print("Check batch limit dictionary")
             if key in batch_lim_dict:
-                color = bcolors.OKGREEN
+                color = BColors.OKGREEN
                 v = str(int(batch_lim_dict[key]))
             else:
-                color = bcolors.FAIL
+                color = BColors.FAIL
                 v = "?"
-            print(f'{color}"{key}": {v}{bcolors.ENDC}')
+            print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         # Neighbors limit
         # ***************
@@ -1131,12 +1131,12 @@ class NPM3DSampler(Sampler):
                 key = f"{dl:.3f}_{r:.3f}"
 
                 if key in neighb_lim_dict:
-                    color = bcolors.OKGREEN
+                    color = BColors.OKGREEN
                     v = str(neighb_lim_dict[key])
                 else:
-                    color = bcolors.FAIL
+                    color = BColors.FAIL
                     v = "?"
-                print(f'{color}"{key}": {v}{bcolors.ENDC}')
+                print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         if redo:
 
@@ -1306,11 +1306,11 @@ class NPM3DSampler(Sampler):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
                         if neighb_size > percentiles[layer]:
-                            color = bcolors.FAIL
+                            color = BColors.FAIL
                         else:
-                            color = bcolors.OKGREEN
+                            color = BColors.OKGREEN
                         line0 += "|{:}{:10d}{:}  ".format(
-                            color, neighb_hists[layer, neighb_size], bcolors.ENDC
+                            color, neighb_hists[layer, neighb_size], BColors.ENDC
                         )
 
                     print(line0)

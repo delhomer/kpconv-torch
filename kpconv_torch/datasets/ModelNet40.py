@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import get_worker_info, Sampler
 
 from kpconv_torch.datasets.common import grid_subsampling, PointCloudDataset
-from kpconv_torch.utils.config import bcolors
+from kpconv_torch.utils.config import BColors
 from kpconv_torch.utils.mayavi_visu import show_input_batch
 
 
@@ -413,12 +413,12 @@ class ModelNet40Sampler(Sampler):
             print("\nPrevious calibration found:")
             print("Check batch limit dictionary")
             if key in batch_lim_dict:
-                color = bcolors.OKGREEN
+                color = BColors.OKGREEN
                 v = str(int(batch_lim_dict[key]))
             else:
-                color = bcolors.FAIL
+                color = BColors.FAIL
                 v = "?"
-            print(f'{color}"{key}": {v}{bcolors.ENDC}')
+            print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         # Neighbors limit
         # ***************
@@ -461,12 +461,12 @@ class ModelNet40Sampler(Sampler):
                 key = f"{dl:.3f}_{r:.3f}"
 
                 if key in neighb_lim_dict:
-                    color = bcolors.OKGREEN
+                    color = BColors.OKGREEN
                     v = str(neighb_lim_dict[key])
                 else:
-                    color = bcolors.FAIL
+                    color = BColors.FAIL
                     v = "?"
-                print(f'{color}"{key}": {v}{bcolors.ENDC}')
+                print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         if redo:
             ############################
@@ -578,11 +578,11 @@ class ModelNet40Sampler(Sampler):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
                         if neighb_size > percentiles[layer]:
-                            color = bcolors.FAIL
+                            color = BColors.FAIL
                         else:
-                            color = bcolors.OKGREEN
+                            color = BColors.OKGREEN
                         line0 += "|{:}{:10d}{:}  ".format(
-                            color, neighb_hists[layer, neighb_size], bcolors.ENDC
+                            color, neighb_hists[layer, neighb_size], BColors.ENDC
                         )
                     print(line0)
 
