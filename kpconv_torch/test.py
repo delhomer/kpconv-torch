@@ -60,6 +60,12 @@ def test(
         config_file_path = Path(chosen_log / "config.yml")
     config = load_config(config_file_path)
 
+    try:
+        config["test"]["validation_size"]
+    except KeyError:
+        config["test"]["validation_size"] = 200
+    config["input"]["threads"] = 10
+
     ############################
     # Initialize the environment
     ############################
