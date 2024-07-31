@@ -143,19 +143,55 @@ train:
   batch_num: 10
   # Frequency at which training checkpoints are saved on disk (in terms of epochs)
   checkpoint_gap: 50
+  # Choose weights for class (used in segmentation loss). Empty list for no weights
   # Deformable offset loss
   # Fitting geometry by penalizing distance from deform point to input points ('point2point')
   # or to input point triplet ('point2plane', not implemented)
-  # Choose weights for class (used in segmentation loss). Empty list for no weights
   # class proportion for R=10.0 and dl=0.08 (first is unlabeled)
   # 19.1 48.9 0.5 1.1 5.6 3.6 0.7 0.6 0.9 193.2 17.7 127.4 6.7 132.3 68.4 283.8 7.0 78.5 3.3 0.8
   # sqrt(Inverse of proportion * 100)
-  # class_w = [1.430, 14.142, 9.535, 4.226, 5.270, 11.952, 12.910, 10.541, 0.719,
-  #            2.377, 0.886, 3.863, 0.869, 1.209, 0.594, 3.780, 1.129, 5.505, 11.180]
+  # class_w:
+  # - 1.430
+  # - 14.142
+  # - 9.535
+  # - 4.226
+  # - 5.270
+  # - 11.952
+  # - 12.910
+  # - 10.541
+  # - 0.719
+  # - 2.377
+  # - 0.886
+  # - 3.863
+  # - 0.869
+  # - 1.209
+  # - 0.594
+  # - 3.780
+  # - 1.129
+  # - 5.505
+  # - 11.180
   # sqrt(Inverse of proportion * 100)  capped (0.5 < X < 5)
-  # class_w = [1.430, 5.000, 5.000, 4.226, 5.000, 5.000, 5.000, 5.000, 0.719, 2.377,
-  #            0.886, 3.863, 0.869, 1.209, 0.594, 3.780, 1.129, 5.000, 5.000]
-  class_w: {}
+  # class_w:
+    # - 1.430
+    # - 5.000
+    # - 5.000
+    # - 4.226
+    # - 5.000
+    # - 5.000
+    # - 5.000
+    # - 5.000
+    # - 0.719
+    # - 2.377
+    # - 0.886
+    # - 3.863
+    # - 0.869
+    # - 1.209
+    # - 0.594
+    # - 3.780
+    # - 1.129
+    # - 5.000
+    # - 5.000
+  class_w:
   # Multiplier for learning rate applied to the deformations
   deform_lr_factor: 0.1
   # Number of steps per epochs

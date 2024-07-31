@@ -123,7 +123,7 @@ train:
   # Fitting geometry by penalizing distance from deform point to input points ('point2point')
   # or to input point triplet ('point2plane', not implemented)
   # Choose weights for class (used in segmentation loss). Empty list for no weights
-  class_w: {}
+  class_w:
   # Number of steps per epochs
   epoch_steps: 500
   # Gradient clipping value (negative means no clipping)
