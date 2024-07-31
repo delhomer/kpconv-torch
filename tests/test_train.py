@@ -95,12 +95,9 @@ def test_train(dataset_path, trained_model_path):
     assert (log_dir / "checkpoints" / "current_chkp.tar").exists()
     assert (log_dir / "checkpoints" / "chkp_0001.tar").exists()
     training_results = np.loadtxt(log_dir / "training.txt", skiprows=1)
-    assert (
-        training_results.shape[0]
-        == initial_config["train"]["epoch_steps"] * initial_config["train"]["max_epoch"]
-    )
-    assert (log_dir / "potentials" / "Area_5.ply").exists()
     t = initial_config["train"]["max_epoch"]
+    assert training_results.shape[0] == initial_config["train"]["epoch_steps"] * t
+    assert (log_dir / "potentials" / "Area_5.ply").exists()
     assert (log_dir / f"val_preds_{t}" / "Area_5.ply").exists()
     assert (log_dir / "val_IoUs.txt").exists()
 
@@ -110,7 +107,6 @@ def test_train(dataset_path, trained_model_path):
     train.train(dataset_path, configfile=None, chosen_log=log_dir, output_dir=None)
 
     log_dirs = list(trained_model_path.iterdir())
-    log_dirs = list(trained_model_path.iterdir())
     assert len(log_dirs) == 1
     new_log_dir = log_dirs[0]
     assert new_log_dir == log_dir
@@ -119,9 +115,7 @@ def test_train(dataset_path, trained_model_path):
     assert (log_dir / "checkpoints" / "current_chkp.tar").exists()
     assert (log_dir / "checkpoints" / "chkp_0002.tar").exists()
     training_results = np.loadtxt(log_dir / "training.txt", skiprows=1)
-    assert training_results.shape[0] == initial_config["train"]["epoch_steps"] * (
-        initial_config["train"]["max_epoch"] + 1
-    )
+    assert training_results.shape[0] == initial_config["train"]["epoch_steps"] * (t + 1)
     assert (log_dir / "potentials" / "Area_5.ply").exists()
     assert (log_dir / f"val_preds_{t}" / "Area_5.ply").exists()
     assert (log_dir / "val_IoUs.txt").exists()

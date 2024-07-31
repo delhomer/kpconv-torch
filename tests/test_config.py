@@ -15,6 +15,12 @@ def test_valid_dataset():
 
 def test_load_config():
     assert load_config("tests/tests_config_S3DIS.yml")["dataset"] == "S3DIS"
+    assert load_config("tests/tests_config_S3DIS.yml")["input"]["threads"] == 10
+    assert load_config("tests/tests_config_S3DIS.yml")["input"]["task"] == "cloud_segmentation"
+    assert (
+        load_config("tests/tests_config_S3DIS.yml")["kpconv"]["deform_fitting_mode"]
+        == "point2point"
+    )
 
 
 def test_save_config():
