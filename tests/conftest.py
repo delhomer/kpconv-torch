@@ -66,3 +66,18 @@ def classification_array():
         [1, 2, 2, 3, 1],
         dtype=np.int32,
     )
+
+
+@pytest.fixture
+def input_points_array():
+    yield np.array(
+        [
+            [-0.509, -1.047, 0.205],
+            [-0.539, -1.018, 0.207],
+            [-0.566, -1.021, 0.206],
+            [0.157, -0.127, 1.152],
+            [0.165, -0.128, 1.145],
+            [0.166, -0.128, 1.136],
+        ],
+        dtype=np.float32,
+    )

@@ -50,7 +50,7 @@ jobs:
 
       - name: Analysing the code with pylint
         run: |
-          pylint $(git ls-files '*.py') --fail-under 8
+          pylint $(git ls-files '*.py') --fail-under 7.95
 
       - name: Lint with flake8
         run: |

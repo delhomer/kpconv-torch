@@ -11,7 +11,7 @@ loacated at `XXXX/Data`. Therefore the relative path to the Data folder is `../.
 S3DIS dataset can be downloaded <a href="https://goo.gl/forms/4SoGp4KtH1jfRqEj2">here (4.8 GB)</a>.
 Download the file named `Stanford3dDataset_v1.2.zip`, uncompress the data and move it to `../../data/S3DIS`.
 
-> If you want to place your data anywhere else, you just have to change the variable `self.path` of `S3DISDataset` class ([here](https://github.com/HuguesTHOMAS/KPConv-PyTorch/blob/afa18c92f00c6ed771b61cb08b285d2f93446ea4/datasets/S3DIS.py#L88)).
+> If you want to place your data anywhere else, you just have to change the variable `self.datapath` of `S3DISDataset` class ([here](https://github.com/HuguesTHOMAS/KPConv-PyTorch/blob/afa18c92f00c6ed771b61cb08b285d2f93446ea4/datasets/S3DIS.py#L88)).
 
 S3DIS dataset is documented [here](http://buildingparser.stanford.edu/dataset.html). It contains:
 - 6 large-scale indoor areas, 3 buildings, 273 million points;
@@ -50,7 +50,7 @@ There are $M$ `cat-z_m.txt` files, each one corresponding to one labeled object 
 ### Preprocessing
 
 ```bash
-kpconv preprocess -s S3DIS -d ~/data/S3DIS
+kpconv preprocess -c ./config_S3DIS.yml -d ~/data/S3DIS
 ```
 
 ### Training
@@ -58,14 +58,14 @@ kpconv preprocess -s S3DIS -d ~/data/S3DIS
 Simply run the following script to start the training:
 ```bash
 mkdir kpconv_trained_models
-kpconv train -s S3DIS -d ~/data/S3DIS -o ~/data/kpconv_trained_models
+kpconv train -s S3DIS -c ./config_S3DIS.yml -d ~/data/S3DIS -o ~/data/kpconv_trained_models
 ```
 The `kpconv_trained_models` folder will be the parent folder of the log folder containing the trained model, which will have the following form: `Log_YYYY-MM-DD_HH-MM-SS`, the horodate corresponding to the launching moment.
 
 To restart the training of an already trained model, at the next iteration, do the following:
 
 ```bash
-kpconv train -s S3DIS -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
+kpconv train -s S3DIS -c ./config_S3DIS.yml -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
 ```
 
 Similarly to ModelNet40 training, the parameters can be modified in a configuration subclass called `S3DISConfig`, and the first run of this script might take some time to precompute dataset structures.
@@ -77,7 +77,7 @@ When you start a new training, it is saved in a `results` folder. A dated log fo
 In `plot_convergence.py`, you will find detailed comments explaining how to choose which training log you want to plot. Follow them and then run the script:
 
 ```bash
-kpconv plotconv -s S3DIS -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
+kpconv plotconv -c ./config_S3DIS.yml -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
 ```
 
 ### Test the trained model
@@ -86,12 +86,12 @@ The test script includes the preprocessing of the entry file. It is the same for
 
 For any file `~/data/cloud.xyz`:
 ```bash
-kpconv test -s S3DIS -d ~/data/S3DIS -f ~/data/cloud.xyz -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
+kpconv test -s S3DIS -c ./config_S3DIS.yml -d ~/data/S3DIS -f ~/data/cloud.xyz -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
 ```
 
 For the validation file `Area_5.ply` of the S3DIS dataset used to train the model:
 ```bash
-kpconv test -s S3DIS -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
+kpconv test -s S3DIS -c ./config_S3DIS.yml -d ~/data/S3DIS -l ~/data/kpconv_trained_models/Log_YYYY-MM-DD_HH-MM-SS
 ```
 
 You will see the performance (on the subsampled input clouds) increase as the test goes on.
@@ -126,7 +126,7 @@ We provide pretrained weights for S3DIS dataset. The raw weights come with a par
 
 | Name (link) | KPConv Type | Description | Score |
 |:-------------|:-------------:|:-----|:-----:|
-| [Light_KPFCNN](https://drive.google.com/file/d/14sz0hdObzsf_exxInXdOIbnUTe0foOOz/view?usp=sharing) | rigid | A network with small `in_radius` for light GPU consumption (~8GB) | 65.4% |
+| [Light_KPFCNN](https://drive.google.com/file/d/14sz0hdObzsf_exxInXdOIbnUTe0foOOz/view?usp=sharing) | rigid | A network with small `sphere_radius` for light GPU consumption (~8GB) | 65.4% |
 | [Heavy_KPFCNN](https://drive.google.com/file/d/1ySQq3SRBgk2Vt5Bvj-0N7jDPi0QTPZiZ/view?usp=sharing) | rigid | A network with better performances but needing bigger GPU (>18GB). | 66.4% |
 | [Deform_KPFCNN](https://drive.google.com/file/d/1ObGr2Srfj0f7Bd3bBbuQzxtjf0ULbpSA/view?usp=sharing) | deform | Deformable convolution network needing big GPU (>20GB). | 67.3% |
 | [Deform_Light_KPFCNN](https://drive.google.com/file/d/1gZfv6q6lUT9STFh7Fk4qVa5IVTgwmWIr/view?usp=sharing) | deform | Lighter version of the deformable architecture (~8GB). | 66.7% |

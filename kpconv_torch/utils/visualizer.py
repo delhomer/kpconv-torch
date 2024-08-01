@@ -7,8 +7,8 @@ from sklearn.neighbors import KDTree
 import torch
 
 from kpconv_torch.models.blocks import KPConv
-from kpconv_torch.utils.config import BColors
 from kpconv_torch.io.ply import write_ply
+from kpconv_torch.utils.config import BColors
 
 
 class ModelVisualizer:
@@ -16,7 +16,6 @@ class ModelVisualizer:
         """
         Initialize training parameters and reload previous model for restore/finetune
         :param net: network object
-        :param config: configuration object
         :param chkp_path: path to the checkpoint that needs to be loaded (None for new training)
         :param finetune: finetune from checkpoint (True) or restore training from checkpoint (False)
         :param on_gpu: Train on GPU or CPU
@@ -25,6 +24,8 @@ class ModelVisualizer:
         ############
         # Parameters
         ############
+
+        self.config = config
 
         # Choose to train on CPU or GPU
         if on_gpu and torch.cuda.is_available():
@@ -55,7 +56,7 @@ class ModelVisualizer:
     # Main visualization methods
     # ------------------------------------------------------------------------------------------------------------------
 
-    def show_deformable_kernels(self, net, loader, config, deform_idx=0):
+    def show_deformable_kernels(self, net, loader, deform_idx=0):
         """
         Show some inference with deformable kernels
         """
@@ -70,9 +71,9 @@ class ModelVisualizer:
         for m in net.modules():
             if isinstance(m, KPConv) and m.deformable:
                 if len(deform_convs) == deform_idx:
-                    color = BColors.OKGREEN.value
+                    color = BColors.OKGREEN
                 else:
-                    color = BColors.FAIL.value
+                    color = BColors.FAIL
                 print(
                     fmt_str.format(
                         color,
@@ -80,7 +81,7 @@ class ModelVisualizer:
                         m.radius,
                         m.in_channels,
                         m.out_channels,
-                        BColors.ENDC.value,
+                        BColors.ENDC,
                     )
                 )
                 deform_convs.append(m)
@@ -99,7 +100,7 @@ class ModelVisualizer:
         count = 0
 
         # Start training loop
-        for _ in range(config.max_epoch):
+        for _ in range(self.config["train"]["max_epoch"]):
 
             for batch in loader:
 
@@ -115,7 +116,7 @@ class ModelVisualizer:
                     batch.to(self.device)
 
                 # Forward pass
-                net(batch, config)
+                net(batch, self.config)
                 original_KP = deform_convs[deform_idx].kernel_points.cpu().detach().numpy()
                 stacked_deformed_KP = deform_convs[deform_idx].deformed_KP.cpu().detach().numpy()
                 count += batch.lengths[0].shape[0]
@@ -226,7 +227,7 @@ class ModelVisualizer:
                     p = points[obj_i]
 
                     # Rescale points for visu
-                    p = p * 1.5 / config.in_radius
+                    p = p * 1.5 / self.config["input"]["sphere_radius"]
 
                     # Show point cloud
                     if show_in_p <= 1:
@@ -245,7 +246,7 @@ class ModelVisualizer:
 
                         # Get points and colors
                         in_p = in_points[obj_i]
-                        in_p = in_p * 1.5 / config.in_radius
+                        in_p = in_p * 1.5 / self.config["input"]["sphere_radius"]
 
                         # Color point cloud if possible
                         in_c = in_colors[obj_i]
@@ -285,7 +286,7 @@ class ModelVisualizer:
                             )
 
                     # Get KP locations
-                    rescaled_aim_point = aim_point * config.in_radius / 1.5
+                    rescaled_aim_point = aim_point * self.config["input"]["sphere_radius"] / 1.5
                     point_i = lookuptrees[obj_i].query(rescaled_aim_point, return_distance=False)[
                         0
                     ][0]
@@ -296,7 +297,7 @@ class ModelVisualizer:
                         KP = points[obj_i][point_i] + original_KP
                         scals = np.zeros_like(KP[:, 0])
 
-                    KP = KP * 1.5 / config.in_radius
+                    KP = KP * 1.5 / self.config["input"]["sphere_radius"]
 
                     plots["KP"] = mlab.points3d(
                         KP[:, 0],
@@ -343,10 +344,10 @@ class ModelVisualizer:
                     # Get KP locations
 
                     KP_def = points[obj_i][point_i] + deformed_KP[obj_i][point_i]
-                    KP_def = KP_def * 1.5 / config.in_radius
+                    KP_def = KP_def * 1.5 / self.config["input"]["sphere_radius"]
 
                     KP_rigid = points[obj_i][point_i] + original_KP
-                    KP_rigid = KP_rigid * 1.5 / config.in_radius
+                    KP_rigid = KP_rigid * 1.5 / self.config["input"]["sphere_radius"]
 
                     if offsets:
                         t_list = np.linspace(0, 1, 150, dtype=np.float32)

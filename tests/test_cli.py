@@ -3,17 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from kpconv_torch.cli.__main__ import valid_dataset, valid_dir
-
-
-def test_valid_dataset():
-    """If the dataset is supported, valid_dataset returns it, otherwise it raises an argparse
-    error.
-
-    """
-    assert valid_dataset("S3DIS") == "S3DIS"
-    with pytest.raises(ArgumentTypeError):
-        valid_dataset("wrong_dataset")
+from kpconv_torch.cli.__main__ import valid_dir
 
 
 def test_valid_dir():

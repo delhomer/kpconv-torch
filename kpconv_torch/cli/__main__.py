@@ -5,17 +5,6 @@ from kpconv_torch import __version__ as kpconv_version
 from kpconv_torch import preprocess, test, train
 
 
-SUPPORTED_DATASETS = {"ModelNet40", "NPM3D", "S3DIS", "SemanticKitti", "Toronto3D"}
-
-
-def valid_dataset(dataset):
-    if dataset not in SUPPORTED_DATASETS:
-        raise argparse.ArgumentTypeError(
-            f"{dataset} dataset is unknown, please choose amongst {SUPPORTED_DATASETS}."
-        )
-    return dataset
-
-
 def valid_dir(str_dir):
     """Build a ``pathlib.Path`` object starting from the ``str_dir`` folder."""
     path_dir = Path(str_dir)
@@ -42,6 +31,14 @@ def kpconv_parser(subparser, reference_func, command, command_description):
     parser = subparser.add_parser(command, help=command_description)
 
     parser.add_argument(
+        "-c",
+        "--configfile",
+        required=False,
+        type=valid_file,
+        help="Path to the config file for the chosen dataset. ",
+    )
+
+    parser.add_argument(
         "-d",
         "--datapath",
         required=True,
@@ -57,7 +54,7 @@ def kpconv_parser(subparser, reference_func, command, command_description):
             type=valid_file,
             help=(
                 "File on which to predict semantic labels starting from a trained model "
-                "(if None, use the validation split)"
+                "(if None, use the validation task)"
             ),
         )
 
@@ -70,21 +67,6 @@ def kpconv_parser(subparser, reference_func, command, command_description):
                 "If mentioned with the test command, "
                 "the test will use this folder for the inference procedure."
             ),
-        )
-        # '.../Log_YYYY-MM-DD_HH-MM-SS': Directly provide the path of a trained model
-        # 'last_XXX': Automatically retrieve the last trained model on dataset XXX
-        parser.add_argument(
-            "-n",
-            "--n-votes",
-            type=int,
-            default=100,
-            help="Number of positive vote during inference process (stop condition to reach)",
-        )
-        parser.add_argument(
-            "-p",
-            "--potential-increment",
-            type=int,
-            help="Increment of inference potential at which results are saved",
         )
 
     if command == "train":
@@ -109,38 +91,7 @@ def kpconv_parser(subparser, reference_func, command, command_description):
                 "Otherwise, the -l option must be mentioned."
             ),
         )
-        parser.add_argument(
-            "-E",
-            "--max-epoch",
-            type=int,
-            help="Upper bound for the number of training epochs (useful for functional test)",
-        )
-        parser.add_argument(
-            "-g",
-            "--checkpoint-gap",
-            type=int,
-            help="Frequency at which training checkpoints are saved on disk (in terms of epochs)",
-        )
-        parser.add_argument(
-            "-e",
-            "--epoch-steps",
-            type=int,
-            help="Number of steps per training epoch",
-        )
-    parser.add_argument(
-        "-v",
-        "--validation-size",
-        type=int,
-        help="Number of steps per validation process, after each epoch",
-    )
 
-    parser.add_argument(
-        "-s",
-        "--dataset",
-        default="S3DIS",
-        type=valid_dataset,
-        help="Name of the dataset",
-    )
     parser.set_defaults(func=reference_func)
 
 
@@ -174,6 +125,12 @@ def main():
     )
 
     args = parser.parse_args()
+
+    if args.config is None and args.chosen_log is None:
+        raise Exception(
+            "A --chosen-log / -l, with a config.yml file inside the folder "
+            "or a --configfile / -c must be specified."
+        )
 
     if "func" in vars(args):
         args.func(args)
