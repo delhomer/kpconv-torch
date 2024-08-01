@@ -1,3 +1,13 @@
+"""
+Dataset preprocess functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+
+"""
+
+# pylint: disable=R0913, R0914, R0912, R0902, R0915
+
 from pathlib import Path
 
 from kpconv_torch.datasets.modelnet40 import ModelNet40Dataset
@@ -10,16 +20,23 @@ from kpconv_torch.utils.config import load_config
 
 
 def main(args):
-    preprocess(args.configfile, args.datapath)
+    """
+    Launch the testing from the CLI arguments
+    """
+    preprocess(args.datapath, args.configfile)
 
 
-def preprocess(configfile_path: Path, datapath: Path) -> None:
+def preprocess(datapath: Path, configfile_path: Path) -> None:
+    """
+    Dataset preprocessing
+
+    :param datapath: path to the data folder
+    :param configfile: path to the config file
+    """
     # Option: set which gpu is going to be used and set the GPU visible device
-    # By modifying the CUDA_VISIBLE_DEVICES environment variable
+    # By modifying the cuda_visible_devices environment variable
 
-    ##############
     # Prepare Data
-    ##############
     print()
     print("Data Preparation")
     print("****************")
