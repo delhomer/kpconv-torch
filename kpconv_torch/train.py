@@ -6,28 +6,28 @@ from kpconv_torch.utils.config import load_config
 import numpy as np
 from torch.utils.data import DataLoader
 
-from kpconv_torch.datasets.ModelNet40 import (
-    ModelNet40Collate,
+from kpconv_torch.datasets.modelnet40 import (
+    modelnet40_collate,
     ModelNet40Dataset,
     ModelNet40Sampler,
 )
-from kpconv_torch.datasets.NPM3D import (
-    NPM3DCollate,
+from kpconv_torch.datasets.npm3d import (
+    npm3d_collate,
     NPM3DDataset,
     NPM3DSampler,
 )
-from kpconv_torch.datasets.S3DIS import (
-    S3DISCollate,
+from kpconv_torch.datasets.s3dis import (
+    s3dis_collate,
     S3DISDataset,
     S3DISSampler,
 )
-from kpconv_torch.datasets.SemanticKitti import (
-    SemanticKittiCollate,
+from kpconv_torch.datasets.semantickitti import (
+    semantickitti_collate,
     SemanticKittiDataset,
     SemanticKittiSampler,
 )
-from kpconv_torch.datasets.Toronto3D import (
-    Toronto3DCollate,
+from kpconv_torch.datasets.toronto3d import (
+    toronto_3d_collate,
     Toronto3DDataset,
     Toronto3DSampler,
 )
@@ -88,7 +88,7 @@ def train(
         )
         train_sampler = ModelNet40Sampler(train_dataset, balance_labels=True)
         test_sampler = ModelNet40Sampler(test_dataset, balance_labels=True)
-        collate_fn = ModelNet40Collate
+        collate_fn = modelnet40_collate
     elif config["dataset"] == "NPM3D":
         train_dataset = NPM3DDataset(
             config=config, datapath=datapath, chosen_log=chosen_log, task="train"
@@ -101,7 +101,7 @@ def train(
         )
         train_sampler = NPM3DSampler(train_dataset)
         test_sampler = NPM3DSampler(test_dataset)
-        collate_fn = NPM3DCollate
+        collate_fn = npm3d_collate
     elif config["dataset"] == "S3DIS":
         train_dataset = S3DISDataset(
             config=config, datapath=datapath, chosen_log=chosen_log, task="train"
@@ -114,7 +114,7 @@ def train(
         )
         train_sampler = S3DISSampler(train_dataset)
         test_sampler = S3DISSampler(test_dataset)
-        collate_fn = S3DISCollate
+        collate_fn = s3dis_collate
     elif config["dataset"] == "SemanticKitti":
         train_dataset = SemanticKittiDataset(
             config=config,
@@ -132,7 +132,7 @@ def train(
         )
         train_sampler = SemanticKittiSampler(train_dataset)
         test_sampler = SemanticKittiSampler(test_dataset)
-        collate_fn = SemanticKittiCollate
+        collate_fn = semantickitti_collate
     elif config["dataset"] == "Toronto3D":
         train_dataset = Toronto3DDataset(
             config=config, datapath=datapath, chosen_log=chosen_log, task="train"
@@ -142,7 +142,7 @@ def train(
         )
         train_sampler = Toronto3DSampler(train_dataset)
         test_sampler = Toronto3DSampler(test_dataset)
-        collate_fn = Toronto3DCollate
+        collate_fn = toronto_3d_collate
     else:
         raise ValueError("Unsupported dataset : " + config["dataset"])
 

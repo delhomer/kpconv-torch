@@ -6,23 +6,23 @@ from kpconv_torch.utils.config import load_config
 import numpy as np
 from torch.utils.data import DataLoader
 
-from kpconv_torch.datasets.ModelNet40 import (
-    ModelNet40Collate,
+from kpconv_torch.datasets.modelnet40 import (
+    modelnet40_collate,
     ModelNet40Dataset,
     ModelNet40Sampler,
 )
-from kpconv_torch.datasets.S3DIS import (
-    S3DISCollate,
+from kpconv_torch.datasets.s3dis import (
+    s3dis_collate,
     S3DISDataset,
     S3DISSampler,
 )
-from kpconv_torch.datasets.SemanticKitti import (
-    SemanticKittiCollate,
+from kpconv_torch.datasets.semantickitti import (
+    semantickitti_collate,
     SemanticKittiDataset,
     SemanticKittiSampler,
 )
-from kpconv_torch.datasets.Toronto3D import (
-    Toronto3DCollate,
+from kpconv_torch.datasets.toronto3d import (
+    toronto_3d_collate,
     Toronto3DDataset,
     Toronto3DSampler,
 )
@@ -107,7 +107,7 @@ def test(
             train=False,
         )
         test_sampler = ModelNet40Sampler(test_dataset)
-        collate_fn = ModelNet40Collate
+        collate_fn = modelnet40_collate
 
     elif config["dataset"] == "S3DIS":
 
@@ -119,7 +119,7 @@ def test(
             task="validate" if filename is None else "test",
         )
         test_sampler = S3DISSampler(test_dataset)
-        collate_fn = S3DISCollate
+        collate_fn = s3dis_collate
 
     elif config["dataset"] == "Toronto3D":
 
@@ -131,7 +131,7 @@ def test(
             task="test",
         )
         test_sampler = Toronto3DSampler(test_dataset)
-        collate_fn = Toronto3DCollate
+        collate_fn = toronto_3d_collate
 
     elif config["dataset"] == "SemanticKitti":
 
@@ -144,7 +144,8 @@ def test(
             balance_classes=False,
         )
         test_sampler = SemanticKittiSampler(test_dataset)
-        collate_fn = SemanticKittiCollate
+        collate_fn = semantickitti_collate
+
     else:
         raise ValueError("Unsupported dataset : " + config["dataset"])
 

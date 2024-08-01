@@ -1,20 +1,10 @@
 from pathlib import Path
 
-from kpconv_torch.datasets.ModelNet40 import (
-    ModelNet40Dataset,
-)
-from kpconv_torch.datasets.NPM3D import (
-    NPM3DDataset,
-)
-from kpconv_torch.datasets.S3DIS import (
-    S3DISDataset,
-)
-from kpconv_torch.datasets.SemanticKitti import (
-    SemanticKittiDataset,
-)
-from kpconv_torch.datasets.Toronto3D import (
-    Toronto3DDataset,
-)
+from kpconv_torch.datasets.modelnet40 import ModelNet40Dataset
+from kpconv_torch.datasets.npm3d import NPM3DDataset
+from kpconv_torch.datasets.s3dis import S3DISDataset
+from kpconv_torch.datasets.semantickitti import SemanticKittiDataset
+from kpconv_torch.datasets.toronto3d import Toronto3DDataset
 
 from kpconv_torch.utils.config import load_config
 
