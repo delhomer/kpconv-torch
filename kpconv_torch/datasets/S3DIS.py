@@ -68,7 +68,7 @@ class S3DISDataset(PointCloudDataset):
         # Data folder management
         if self.task == "test" and infered_file is not None:
             # Inference case: a S3DIS dataset is built with the infered file
-            self.cloud_names = [infered_file]
+            self.cloud_names = [infered_file.name]
         else:
             # Any other case: the S3DIS dataset is built with the S3DIS original data
             if self.task == "all":
@@ -86,7 +86,7 @@ class S3DISDataset(PointCloudDataset):
             ]
         self.files = [
             (
-                cloud_name
+                infered_file
                 if self.task == "test" and infered_file is not None
                 else self.train_files_path / (cloud_name + ".ply")
             )
@@ -826,21 +826,28 @@ class S3DISDataset(PointCloudDataset):
         points, _, _ = self.read_input(file_path)
         return points
 
-    def read_input(self, filepath):
+    def read_input(self, filepath, xyz_only=False):
         """Read all the input files that belong to the dataset
 
         PLY files are read by training and testing commands.
         """
         file_extension = Path(filepath).suffix
         if file_extension == ".ply":
-            points, colors, labels = read_ply(filepath)
+            points, colors, labels = read_ply(filepath, xyz_only=xyz_only)
         elif file_extension == ".xyz":
-            points, colors, labels = read_xyz(filepath)
+            points, colors, labels = read_xyz(filepath, xyz_only=xyz_only)
         elif file_extension == ".las" or file_extension == ".laz":
-            points, colors, labels = read_las_laz(filepath)
+            points, colors, labels = read_las_laz(filepath, xyz_only=xyz_only)
         else:
             raise OSError(f"Unsupported input file extension ({file_extension}).")
         return points, colors, labels
+
+    def generate_projected_point_batches(self, file_idx, file_path, step=5_000_000):
+        points, _, _ = self.read_input(file_path, xyz_only=True)
+        nb_points = points.shape[0]
+        for idx in range(0, nb_points, step):
+            max_idx = min(idx + step, nb_points)
+            yield points[idx:max_idx, :], self.test_proj[file_idx][idx:max_idx]
 
 
 # ----------------------------------------------------------------------------------------------------------------------

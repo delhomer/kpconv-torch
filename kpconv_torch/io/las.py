@@ -2,56 +2,66 @@ import laspy
 import numpy as np
 
 
-def read_las_laz(filepath):
+def read_las_laz(filepath, xyz_only=False):
     """Takes a file path pointing on a 3D point .las or .laz file and returns the points,
     the associated colors and the associated classes.
 
-    Parameters
-    ----------
-    filepath: path to a 3D points file with .laz or .las format
+    :param filepath: path to a 3D points file with .laz or .las format. Colors are original encoded
+    on 2 bytes (cf. https://www.asprs.org/a/society/committees/standards/asprs_las_spec_v13.pdf),
+    that is on a uint16. They are converted (divided by 256) when the las or the laz file is read
+    by this function.
+    :type filepath: str
 
-    Colors are original encoded on 2 bytes
-    (cf. https://www.asprs.org/a/society/committees/standards/asprs_las_spec_v13.pdf), that is on a
-    uint16. They are converted (divided by 256) when the las or the laz file is read by this
-    function.
-
-    Returns
-    -------
-    points: 2D np.array with type float32
-    colors: 2D np.array with type uint8
-    labels: 1D np.array with type int32
+    :returns: 2D np.array with type float32, 2D np.array with type uint8, 1D np.array with type
+    int32
+    :rtype: tuple
 
     """
     data = laspy.read(filepath)
     points = np.vstack([data.x, data.y, data.z]).transpose().astype(np.float32)
+    if xyz_only:
+        return points, None, None
     dims = list(data.point_format.dimension_names)
+    colorfactor = 256
+    if data.red.max() <= 255:
+        print("The color data seems to be wrongly encoded and defined on 1 byte.")
+        colorfactor = 1
     if "red" in dims and "blue" in dims and "green" in dims:
         colors = (
-            np.vstack([data.red / 256, data.green / 256, data.blue / 256])
+            np.vstack([data.red / colorfactor, data.green / colorfactor, data.blue / colorfactor])
             .transpose()
             .astype(np.uint8)
         )
     else:
         colors = np.zeros((points.shape[0], 3))
     if "classification" in dims:
-        labels = np.array(data.classification).astype(np.int32)
+        labels = np.array(data.classification).astype(np.int8)
     else:
-        labels = np.zeros(points.shape[0])
+        labels = np.zeros(points.shape[0], dtype=np.int8)
 
     return points, colors, labels
 
 
 def write_las(filepath, points, colors=None, labels=None):
     """Creates a .las file from a 3D point cloud.
-    Parameters
-    ----------
-    filepath: path to the .las file
-    points: 2D np.array with type float32
-    colors: 2D np.array with type uint8 or uint16
-    labels: 1D np.array with type int32
 
     Uses a point_format = 7 (cf. https://pythonhosted.org/laspy/tut_background.html)
     Warning: laspy does not have support for writing files in the .laz format.
+
+    :param filepath: path to the .las file
+    :type filepath: str
+    :param points: 2D np.array with type float32
+    :type points: np.array
+    :param colors: 2D np.array with type uint8 or uint16
+    :type colors: np.array
+    :param labels: 1D np.array with type int32
+    :type labels: np.array
+
+    :raises TypeError: Wrong type for points, colors or classification
+
+    :returns: True if the file is correctly written
+    :rtype: boolean
+
     """
     if colors is None:
         colors = np.zeros(points.shape[0], 3).astype(np.uint8)

@@ -29,14 +29,14 @@ ply_dtypes = {
 def describe_element(name, df):
     """Takes the columns of the dataframe and builds a ply-like description
 
-    Parameters
-    ----------
-    name: str
-    df: pandas DataFrame
+    :param name: Name of the element
+    :type name: str
+    :param df:
+    :type df: pandas.DataFrame
 
-    Returns
-    -------
-    element: list[str]
+    :return: elements
+    :rtype: list[str]
+
     """
     property_formats = {"f": "float", "u": "uchar", "i": "int"}
     element = ["element " + name + " " + str(len(df))]
@@ -51,21 +51,6 @@ def describe_element(name, df):
             element.append("property " + f + " " + df.columns.values[i])
 
     return element
-
-
-def header_properties(field_list, field_names):
-
-    # First line describing element vertex
-    lines = ["element vertex %d" % field_list[0].shape[0]]
-
-    # Properties lines
-    i = 0
-    for fields in field_list:
-        for field in fields.T:
-            lines.append(f"property {field.dtype.name} {field_names[i]}")
-            i += 1
-
-    return lines
 
 
 def parse_header(plyfile, ext):
@@ -120,21 +105,18 @@ def parse_mesh_header(plyfile, ext):
     return num_points, num_faces, vertex_properties
 
 
-def read_ply(filepath, triangular_mesh=False):
+def read_ply(filepath, triangular_mesh=False, xyz_only=False):
     """Takes a file path pointing on a 3D point .ply file and returns the points,
     the associated colors and the associated classes.
 
-    Parameters
-    ----------
-    filepath: path to a 3D points file with .ply format
+    :param filepath: path to a 3D points file with .ply format
+    :type filepath: str
 
-    Returns
-    -------
-    points: 2D np.array with type float32
-    colors: 2D np.array with type uint8
-    labels: 1D np.array with type int32
+    :returns: 2D np.array with type float32, 2D np.array with type uint8, 1D np.array with type
+    int32
+    :rtype: tuple
+
     """
-
     with open(filepath, "rb") as plyfile:
         # Check if the file start with ply
         if b"ply" not in plyfile.readline():
@@ -180,6 +162,8 @@ def read_ply(filepath, triangular_mesh=False):
 
         fields = [p[0] for p in properties]
         points = np.vstack((data["x"], data["y"], data["z"])).transpose().astype(np.float32)
+        if xyz_only:
+            return points, None, None
         if "red" in fields and "green" in fields and "blue" in fields:
             colors = (
                 np.vstack((data["red"], data["green"], data["blue"])).transpose().astype(np.uint8)
@@ -189,49 +173,54 @@ def read_ply(filepath, triangular_mesh=False):
         if "classification" in fields:
             labels = data["classification"]
         else:
-            labels = np.zeros((points.shape[0]), dtype=np.int32)
+            labels = np.zeros((points.shape[0]), dtype=np.int8)
 
     return points, colors, labels
 
 
-def write_ply(filename, field_list, field_names, triangular_faces=None):
-    """
-    Write ".ply" files
+def header_properties(nb_points, field_list, field_names):
 
-    Parameters
-    ----------
-    filename : string
-        the name of the file to which the data is saved. A '.ply' extension will be appended to the
-        file name if it does no already have one.
+    # First line describing element vertex
+    lines = ["element vertex %d" % nb_points]
 
-    field_list : list, tuple, numpy array
-        the fields to be saved in the ply file. Either a numpy array, a list of numpy arrays or a
-        tuple of numpy arrays. Each 1D numpy array and each column of 2D numpy arrays are considered
-        as one field.
+    # Properties lines
+    i = 0
+    for fields in field_list:
+        for field in fields.T:
+            lines.append(f"property {field.dtype.name} {field_names[i]}")
+            i += 1
 
-    field_names : list
-        the name of each fields as a list of strings. Has to be the same length as the number of
-        fields.
+    return lines
 
-    Examples
-    --------
-    >>> points = np.random.rand(10, 3)
-    >>> write_ply('example1.ply', points, ['x', 'y', 'z'])
 
-    >>> values = np.random.randint(2, size=10)
-    >>> write_ply('example2.ply', [points, values], ['x', 'y', 'z', 'values'])
+def write_ply_header(filename, field_list, field_names, triangular_faces=None, nb_points=None):
 
-    >>> colors = np.random.randint(255, size=(10,3), dtype=np.uint8)
-    >>> field_names = ['x', 'y', 'z', 'red', 'green', 'blue', 'classification']
-    >>> write_ply('example3.ply', [points, colors, values], field_names)
-    """
+    if nb_points is None:
+        nb_points = field_list[0].shape[0]
 
-    # Format list input to the right form
-    field_list = (
-        list(field_list)
-        if (isinstance(field_list, list) or isinstance(field_list, tuple))
-        else list((field_list,))  # noqa: C410
-    )
+    # open in text mode to write the header
+    with open(filename, "w") as plyfile:
+
+        # First magical word and encoding format
+        header = ["ply", "format binary_" + sys.byteorder + "_endian 1.0"]
+
+        # Points properties description
+        header.extend(header_properties(nb_points, field_list, field_names))
+
+        # Add faces if needded
+        if triangular_faces is not None:
+            header.append(f"element face {triangular_faces.shape[0]:d}")
+            header.append("property list uchar int vertex_indices")
+
+        # End of header
+        header.append("end_header")
+
+        # Write all lines
+        for line in header:
+            plyfile.write("%s\n" % line)
+
+
+def check_ply_fields(field_list, field_names):
     for i, field in enumerate(field_list):
         if field.ndim < 2:
             field_list[i] = field.reshape(-1, 1)
@@ -252,35 +241,13 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
     if n_fields != len(field_names):
         print("wrong number of field names")
         return False
+    return True
 
-    # Add extension if not there
-    if not filename.endswith(".ply"):
-        filename += ".ply"
 
-    # open in text mode to write the header
-    with open(filename, "w") as plyfile:
-
-        # First magical word and encoding format
-        header = ["ply", "format binary_" + sys.byteorder + "_endian 1.0"]
-
-        # Points properties description
-        header.extend(header_properties(field_list, field_names))
-
-        # Add faces if needded
-        if triangular_faces is not None:
-            header.append(f"element face {triangular_faces.shape[0]:d}")
-            header.append("property list uchar int vertex_indices")
-
-        # End of header
-        header.append("end_header")
-
-        # Write all lines
-        for line in header:
-            plyfile.write("%s\n" % line)
+def write_ply_data(filename, field_list, field_names, triangular_faces=None):
 
     # open in binary/append to use tofile
     with open(filename, "ab") as plyfile:
-
         # Create a structured array
         i = 0
         type_list = []
@@ -305,5 +272,84 @@ def write_ply(filename, field_list, field_names, triangular_faces=None):
             data["1"] = triangular_faces[:, 1]
             data["2"] = triangular_faces[:, 2]
             data.tofile(plyfile)
+
+
+def write_ply(filename, field_list, field_names, triangular_faces=None):
+    """Write ".ply" files
+
+    :param filename: the name of the file to which the data is saved. A '.ply' extension will be
+    appended to the file name if it does no already have one.
+    :type filename: str
+    :param field_list: the fields to be saved in the ply file. Either a numpy array, a list of
+    numpy arrays or a tuple of numpy arrays. Each 1D numpy array and each column of 2D numpy arrays
+    are considered as one field.
+    :type field_list: list|tuple|numpy.array
+    :param field_names: the name of each fields as a list of strings. Has to be the same length as
+        the number of fields.
+    :type field_names: list
+
+    :Example:
+
+    >>> points = np.random.rand(10, 3)
+    >>> write_ply('example1.ply', points, ['x', 'y', 'z'])
+    >>> values = np.random.randint(2, size=10)
+    >>> write_ply('example2.ply', [points, values], ['x', 'y', 'z', 'values'])
+    >>> colors = np.random.randint(255, size=(10,3), dtype=np.uint8)
+    >>> field_names = ['x', 'y', 'z', 'red', 'green', 'blue', 'classification']
+    >>> write_ply('example3.ply', [points, colors, values], field_names)
+
+    """
+    # Format list input to the right form
+    field_list = (
+        list(field_list)
+        if (isinstance(field_list, list) or isinstance(field_list, tuple))
+        else list((field_list,))  # noqa: C410
+    )
+
+    # Add extension if not there
+    if not filename.endswith(".ply"):
+        filename += ".ply"
+
+    if not check_ply_fields(field_list, field_names):
+        return False
+    write_ply_header(filename, field_list, field_names, triangular_faces)
+    write_ply_data(filename, field_list, field_names, triangular_faces)
+    return True
+
+
+def write_ply_from_generator(
+    filename, field_genlist, field_names, nb_points, triangular_faces=None
+):
+    # Add extension if not there
+    if not filename.endswith(".ply"):
+        filename += ".ply"
+
+    # First iteration so as to design the header
+    field_list = [next(gen) for gen in field_genlist]
+    # Format list input to the right form
+    field_list = (
+        list(field_list)
+        if (isinstance(field_list, list) or isinstance(field_list, tuple))
+        else list((field_list,))  # noqa: C410
+    )
+    if not check_ply_fields(field_list, field_names):
+        return False
+    write_ply_header(filename, field_list, field_names, triangular_faces, nb_points=nb_points)
+    write_ply_data(filename, field_list, field_names, triangular_faces)
+    # Remaining iterations
+    while True:
+        try:
+            field_list = [next(gen) for gen in field_genlist]
+        except StopIteration:
+            break
+        # Format list input to the right form
+        field_list = (
+            list(field_list)
+            if (isinstance(field_list, list) or isinstance(field_list, tuple))
+            else list((field_list,))  # noqa: C410
+        )
+        if not check_ply_fields(field_list, field_names):
+            return False
+        write_ply_data(filename, field_list, field_names, triangular_faces)
 
     return True
