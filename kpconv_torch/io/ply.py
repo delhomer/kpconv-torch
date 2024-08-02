@@ -29,14 +29,14 @@ ply_dtypes = {
 def describe_element(name, df):
     """Takes the columns of the dataframe and builds a ply-like description
 
-    Parameters
-    ----------
-    name: str
-    df: pandas DataFrame
+    :param name: Name of the element
+    :type name: str
+    :param df:
+    :type df: pandas.DataFrame
 
-    Returns
-    -------
-    element: list[str]
+    :return: elements
+    :rtype: list[str]
+
     """
     property_formats = {"f": "float", "u": "uchar", "i": "int"}
     element = ["element " + name + " " + str(len(df))]
@@ -109,17 +109,14 @@ def read_ply(filepath, triangular_mesh=False, xyz_only=False):
     """Takes a file path pointing on a 3D point .ply file and returns the points,
     the associated colors and the associated classes.
 
-    Parameters
-    ----------
-    filepath: path to a 3D points file with .ply format
+    :param filepath: path to a 3D points file with .ply format
+    :type filepath: str
 
-    Returns
-    -------
-    points: 2D np.array with type float32
-    colors: 2D np.array with type uint8
-    labels: 1D np.array with type int32
+    :returns: 2D np.array with type float32, 2D np.array with type uint8, 1D np.array with type
+    int32
+    :rtype: tuple
+
     """
-
     with open(filepath, "rb") as plyfile:
         # Check if the file start with ply
         if b"ply" not in plyfile.readline():
@@ -278,35 +275,29 @@ def write_ply_data(filename, field_list, field_names, triangular_faces=None):
 
 
 def write_ply(filename, field_list, field_names, triangular_faces=None):
-    """
-    Write ".ply" files
+    """Write ".ply" files
 
-    Parameters
-    ----------
-    filename : string
-        the name of the file to which the data is saved. A '.ply' extension will be appended to the
-        file name if it does no already have one.
+    :param filename: the name of the file to which the data is saved. A '.ply' extension will be
+    appended to the file name if it does no already have one.
+    :type filename: str
+    :param field_list: the fields to be saved in the ply file. Either a numpy array, a list of
+    numpy arrays or a tuple of numpy arrays. Each 1D numpy array and each column of 2D numpy arrays
+    are considered as one field.
+    :type field_list: list|tuple|numpy.array
+    :param field_names: the name of each fields as a list of strings. Has to be the same length as
+        the number of fields.
+    :type field_names: list
 
-    field_list : list, tuple, numpy array
-        the fields to be saved in the ply file. Either a numpy array, a list of numpy arrays or a
-        tuple of numpy arrays. Each 1D numpy array and each column of 2D numpy arrays are considered
-        as one field.
+    :Example:
 
-    field_names : list
-        the name of each fields as a list of strings. Has to be the same length as the number of
-        fields.
-
-    Examples
-    --------
     >>> points = np.random.rand(10, 3)
     >>> write_ply('example1.ply', points, ['x', 'y', 'z'])
-
     >>> values = np.random.randint(2, size=10)
     >>> write_ply('example2.ply', [points, values], ['x', 'y', 'z', 'values'])
-
     >>> colors = np.random.randint(255, size=(10,3), dtype=np.uint8)
     >>> field_names = ['x', 'y', 'z', 'red', 'green', 'blue', 'classification']
     >>> write_ply('example3.ply', [points, colors, values], field_names)
+
     """
     # Format list input to the right form
     field_list = (

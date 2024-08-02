@@ -6,20 +6,15 @@ def read_las_laz(filepath, xyz_only=False):
     """Takes a file path pointing on a 3D point .las or .laz file and returns the points,
     the associated colors and the associated classes.
 
-    Parameters
-    ----------
-    filepath: path to a 3D points file with .laz or .las format
+    :param filepath: path to a 3D points file with .laz or .las format. Colors are original encoded
+    on 2 bytes (cf. https://www.asprs.org/a/society/committees/standards/asprs_las_spec_v13.pdf),
+    that is on a uint16. They are converted (divided by 256) when the las or the laz file is read
+    by this function.
+    :type filepath: str
 
-    Colors are original encoded on 2 bytes
-    (cf. https://www.asprs.org/a/society/committees/standards/asprs_las_spec_v13.pdf), that is on a
-    uint16. They are converted (divided by 256) when the las or the laz file is read by this
-    function.
-
-    Returns
-    -------
-    points: 2D np.array with type float32
-    colors: 2D np.array with type uint8
-    labels: 1D np.array with type int32
+    :returns: 2D np.array with type float32, 2D np.array with type uint8, 1D np.array with type
+    int32
+    :rtype: tuple
 
     """
     data = laspy.read(filepath)
@@ -49,15 +44,24 @@ def read_las_laz(filepath, xyz_only=False):
 
 def write_las(filepath, points, colors=None, labels=None):
     """Creates a .las file from a 3D point cloud.
-    Parameters
-    ----------
-    filepath: path to the .las file
-    points: 2D np.array with type float32
-    colors: 2D np.array with type uint8 or uint16
-    labels: 1D np.array with type int32
 
     Uses a point_format = 7 (cf. https://pythonhosted.org/laspy/tut_background.html)
     Warning: laspy does not have support for writing files in the .laz format.
+
+    :param filepath: path to the .las file
+    :type filepath: str
+    :param points: 2D np.array with type float32
+    :type points: np.array
+    :param colors: 2D np.array with type uint8 or uint16
+    :type colors: np.array
+    :param labels: 1D np.array with type int32
+    :type labels: np.array
+
+    :raises TypeError: Wrong type for points, colors or classification
+
+    :returns: True if the file is correctly written
+    :rtype: boolean
+
     """
     if colors is None:
         colors = np.zeros(points.shape[0], 3).astype(np.uint8)
