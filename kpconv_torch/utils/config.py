@@ -1,4 +1,5 @@
 from enum import Enum
+import random
 import yaml
 
 from pathlib import Path
@@ -37,6 +38,11 @@ def load_config(file_path):
 
     with open(file_path) as file_object:
         config = yaml.load(file_object, Loader=yaml.SafeLoader)
+
+    if "colors" not in config:
+        config["colors"] = [
+            "#%06xff" % random.randint(0, 0xFFFFFF) for _ in config["model"]["label_to_names"]
+        ]
 
     # Check if dataset exists
     valid_dataset(config["dataset"])
