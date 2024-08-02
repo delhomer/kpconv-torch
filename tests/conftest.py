@@ -30,6 +30,13 @@ def training_log(trained_model_path):
 def inference_file(fixture_path, training_log):
     yield fixture_path / "inference" / "Area4_hallway5.ply"
     rmtree(training_log)
+    rmtree(fixture_path / "S3DIS" / "calibration")
+    rmtree(fixture_path / "S3DIS" / "input_0.030")
+    rmtree(fixture_path / "S3DIS" / "original_ply")
+    for p in Path(fixture_path / "inference").glob("Area4_hallway5.ply_*"):
+        p.unlink()
+    for p in Path(fixture_path / "inference").glob("Area4_hallway5.ply.*"):
+        p.unlink()
 
 
 @pytest.fixture
@@ -69,7 +76,7 @@ def classification_array():
 
 
 @pytest.fixture
-def input_points_array():
+def input_points_array(fixture_path):
     yield np.array(
         [
             [-0.509, -1.047, 0.205],
