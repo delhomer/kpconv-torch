@@ -1,9 +1,18 @@
+"""
+Toronto3D Dataset Class, used to manage data that can be downloaded here :
+https://github.com/WeikaiTan/Toronto-3D
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
 from multiprocessing import Lock
 import os
 import pickle
 import time
 import warnings
 
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.neighbors import KDTree
 import torch
@@ -16,7 +25,9 @@ from kpconv_torch.io.ply import read_ply, write_ply
 
 
 class Toronto3DDataset(PointCloudDataset):
-    """Class to handle Toronto3D dataset."""
+    """
+    Class to handle Toronto3D dataset
+    """
 
     def __init__(
         self,
@@ -56,7 +67,7 @@ class Toronto3DDataset(PointCloudDataset):
         self.train_tasks = [0, 2, 3]
 
         # Define offset
-        self.UTM_OFFSET = [627285, 4841948, 0]
+        self.utm_offset = [627285, 4841948, 0]
 
         self.test_cloud_names = ["L002"]
 
@@ -74,16 +85,11 @@ class Toronto3DDataset(PointCloudDataset):
         if not load_data:
             return
 
-        ###################
         # Prepare ply files
-        ###################
         if infered_file is None:
-            self.prepare_Toronto3D_ply()
+            self.prepare_toronto3d_ply()
 
-        ################
         # Load ply files
-        ################
-
         # List of training files
         self.files = []
         for i, f in enumerate(self.cloud_names):
@@ -124,10 +130,7 @@ class Toronto3DDataset(PointCloudDataset):
         # Start loading
         self.load_subsampled_clouds()
 
-        ############################
         # Batch selection parameters
-        ############################
-
         # Initialize value for batch limit (max number of points per batch).
         self.batch_limit = torch.tensor([1], dtype=torch.float32)
         self.batch_limit.share_memory_()
@@ -177,8 +180,6 @@ class Toronto3DDataset(PointCloudDataset):
             self.batch_limit.share_memory_()
             np.random.seed(42)
 
-        return
-
     def __len__(self):
         """
         Return the length of data here
@@ -186,19 +187,22 @@ class Toronto3DDataset(PointCloudDataset):
         return len(self.cloud_names)
 
     def __getitem__(self, batch_i):
-        """The main thread gives a list of indices to load a batch. Each worker is going to work in
+        """
+        The main thread gives a list of indices to load a batch. Each worker is going to work in
         parallel to load a different list of indices.
-
         """
 
         if self.config["input"]["use_potentials"]:
             return self.potential_item()
-        else:
-            return self.random_item(batch_i)
+        return self.random_item()
 
     def potential_item(self, debug_workers=False):
+        """
 
-        t = [time.time()]
+        :param debug_workers:
+        """
+
+        timestamps = [time.time()]
 
         # Initiate concatanation lists
         p_list = []
@@ -208,7 +212,7 @@ class Toronto3DDataset(PointCloudDataset):
         pi_list = []
         ci_list = []
         s_list = []
-        R_list = []
+        r_list = []
         batch_n = 0
         failed_attempts = 0
 
@@ -220,7 +224,7 @@ class Toronto3DDataset(PointCloudDataset):
 
         while True:
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             if debug_workers:
                 message = ""
@@ -287,7 +291,7 @@ class Toronto3DDataset(PointCloudDataset):
                     self.min_potentials[[cloud_ind]] = self.potentials[cloud_ind][min_ind]
                     self.argmin_potentials[[cloud_ind]] = min_ind
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Get points from tree structure
             points = np.array(self.input_trees[cloud_ind].data, copy=False)
@@ -297,18 +301,18 @@ class Toronto3DDataset(PointCloudDataset):
                 center_point, r=self.config["input"]["sphere_radius"]
             )[0]
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Number collected
-            n = input_inds.shape[0]
+            collected_points = input_inds.shape[0]
 
             # Safe check for empty spheres
-            if n < 2:
+            if collected_points < 2:
                 failed_attempts += 1
                 if failed_attempts > 100 * self.config["train"]["batch_num"]:
                     raise ValueError("It seems this dataset only contains empty input spheres")
-                t += [time.time()]
-                t += [time.time()]
+                timestamps += [time.time()]
+                timestamps += [time.time()]
                 continue
 
             # Collect labels and colors
@@ -320,10 +324,10 @@ class Toronto3DDataset(PointCloudDataset):
                 input_labels = self.input_labels[cloud_ind][input_inds]
                 input_labels = np.array([self.label_to_idx[label] for label in input_labels])
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Data augmentation
-            input_points, scale, R = self.augmentation_transform(input_points)
+            input_points, _, scale, rotation_matrix = self.augmentation_transform(input_points)
 
             # Color augmentation
             if np.random.rand() > self.config["train"]["augment_color"]:
@@ -334,7 +338,7 @@ class Toronto3DDataset(PointCloudDataset):
                 (input_colors, input_points[:, 2:] + center_point[:, 2:])
             ).astype(np.float32)
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Stack batch
             p_list += [input_points]
@@ -344,19 +348,16 @@ class Toronto3DDataset(PointCloudDataset):
             i_list += [point_ind]
             ci_list += [cloud_ind]
             s_list += [scale]
-            R_list += [R]
+            r_list += [rotation_matrix]
 
             # Update batch size
-            batch_n += n
+            batch_n += collected_points
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
                 break
 
-        ###################
         # Concatenate batch
-        ###################
-
         stacked_points = np.concatenate(p_list, axis=0)
         features = np.concatenate(f_list, axis=0)
         labels = np.concatenate(l_list, axis=0)
@@ -365,7 +366,7 @@ class Toronto3DDataset(PointCloudDataset):
         input_inds = np.concatenate(pi_list, axis=0)
         stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
         scales = np.array(s_list, dtype=np.float32)
-        rots = np.stack(R_list, axis=0)
+        rots = np.stack(r_list, axis=0)
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
@@ -378,21 +379,16 @@ class Toronto3DDataset(PointCloudDataset):
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
 
-        #######################
         # Create network inputs
-        #######################
-        #
         #   Points, neighbors, pooling indices for each layers
-        #
-
-        t += [time.time()]
+        timestamps += [time.time()]
 
         # Get the whole input list
         input_list = self.segmentation_inputs(
             stacked_points, stacked_features, labels, stack_lengths
         )
 
-        t += [time.time()]
+        timestamps += [time.time()]
 
         # Add scale and rotation for testing
         input_list += [scales, rots, cloud_inds, point_inds, input_inds]
@@ -411,66 +407,70 @@ class Toronto3DDataset(PointCloudDataset):
             print(message)
             self.worker_waiting[wid] = 2
 
-        t += [time.time()]
+        timestamps += [time.time()]
 
         # Display timings
-        debugT = False
-        if debugT:
+        debug_t = False
+        if debug_t:
             print("\n************************\n")
             print("Timings:")
-            ti = 0
-            N = 5
+            timestamp = 0
+            num = 5
             mess = "Init ...... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Pots ...... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Sphere .... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Collect ... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Augment ... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += N * (len(stack_lengths) - 1) + 1
-            print(f"concat .... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
-            ti += 1
-            print(f"input ..... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
-            ti += 1
-            print(f"stack ..... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
-            ti += 1
+            timestamp += num * (len(stack_lengths) - 1) + 1
+            print(f"concat .... {1000 * (timestamps[timestamp+1] - timestamps[timestamp]):5.1f}ms")
+            timestamp += 1
+            print(f"input ..... {1000 * (timestamps[timestamp+1] - timestamps[timestamp]):5.1f}ms")
+            timestamp += 1
+            print(f"stack ..... {1000 * (timestamps[timestamp+1] - timestamps[timestamp]):5.1f}ms")
+            timestamp += 1
             print("\n************************\n")
         return input_list
 
-    def random_item(self, batch_i):
-
+    def random_item(self):
         # Initiate concatanation lists
         p_list = []
         f_list = []
@@ -479,7 +479,7 @@ class Toronto3DDataset(PointCloudDataset):
         pi_list = []
         ci_list = []
         s_list = []
-        R_list = []
+        r_list = []
         batch_n = 0
         failed_attempts = 0
 
@@ -533,7 +533,7 @@ class Toronto3DDataset(PointCloudDataset):
                 input_labels = np.array([self.label_to_idx[label] for label in input_labels])
 
             # Data augmentation
-            input_points, scale, R = self.augmentation_transform(input_points)
+            input_points, _, scale, r_ = self.augmentation_transform(input_points)
 
             # Color augmentation
             if np.random.rand() > self.config["train"]["augment_color"]:
@@ -552,7 +552,7 @@ class Toronto3DDataset(PointCloudDataset):
             i_list += [point_ind]
             ci_list += [cloud_ind]
             s_list += [scale]
-            R_list += [R]
+            r_list += [r_]
 
             # Update batch size
             batch_n += n
@@ -561,10 +561,7 @@ class Toronto3DDataset(PointCloudDataset):
             if batch_n > int(self.batch_limit):
                 break
 
-        ###################
         # Concatenate batch
-        ###################
-
         stacked_points = np.concatenate(p_list, axis=0)
         features = np.concatenate(f_list, axis=0)
         labels = np.concatenate(l_list, axis=0)
@@ -573,7 +570,7 @@ class Toronto3DDataset(PointCloudDataset):
         input_inds = np.concatenate(pi_list, axis=0)
         stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
         scales = np.array(s_list, dtype=np.float32)
-        rots = np.stack(R_list, axis=0)
+        rots = np.stack(r_list, axis=0)
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
@@ -586,13 +583,8 @@ class Toronto3DDataset(PointCloudDataset):
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
 
-        #######################
         # Create network inputs
-        #######################
-        #
         #   Points, neighbors, pooling indices for each layers
-        #
-
         # Get the whole input list
         input_list = self.segmentation_inputs(
             stacked_points, stacked_features, labels, stack_lengths
@@ -603,7 +595,10 @@ class Toronto3DDataset(PointCloudDataset):
 
         return input_list
 
-    def prepare_Toronto3D_ply(self):
+    def prepare_toronto3d_ply(self):
+        """
+        Prepare a PLY file after inference
+        """
 
         print("\nPreparing ply files")
         t0 = time.time()
@@ -621,23 +616,25 @@ class Toronto3DDataset(PointCloudDataset):
 
             print(f"\nPreparing ply for cloud {cloud_name}\n")
 
-            pc = read_ply(os.path.join(self.datapath, "original_ply/" + cloud_name + ".ply"))
+            points, colors, labels = read_ply(
+                os.path.join(self.datapath, "original_ply/" + cloud_name + ".ply")
+            )
             xyz = np.vstack(
                 (
-                    pc["x"] - self.UTM_OFFSET[0],
-                    pc["y"] - self.UTM_OFFSET[1],
-                    pc["z"] - self.UTM_OFFSET[2],
+                    points["x"] - self.utm_offset[0],
+                    points["y"] - self.utm_offset[1],
+                    points["z"] - self.utm_offset[2],
                 )
             ).T.astype(np.float32)
-            color = np.vstack((pc["red"], pc["green"], pc["blue"])).T.astype(np.uint8)
-            intensity = pc["scalar_Intensity"].astype(np.uint8)
+            color = np.vstack((colors["red"], colors["green"], colors["blue"])).T.astype(np.uint8)
+            intensity = labels["scalar_Intensity"].astype(np.uint8)
             rgbi = np.hstack((color, intensity.reshape(-1, 1)))
-            labels = pc["scalar_Label"].astype(np.uint8)
+            labels = labels["scalar_Label"].astype(np.uint8)
 
             # Save as ply
             write_ply(
                 os.path.join(ply_path, cloud_name + ".ply"),
-                (xyz, rgbi, labels),
+                [xyz, rgbi, labels],
                 [
                     "x",
                     "y",
@@ -649,12 +646,9 @@ class Toronto3DDataset(PointCloudDataset):
                     "scalar_Label",
                 ],
             )
-
         print(f"Done in {time.time() - t0:.1f}s")
-        return
 
     def load_subsampled_clouds(self):
-
         # Parameter
         dl = self.config["kpconv"]["first_subsampling_dl"]
 
@@ -663,10 +657,7 @@ class Toronto3DDataset(PointCloudDataset):
         if not os.path.exists(tree_path):
             os.mkdir(tree_path)
 
-        ##############
-        # Load KDTrees
-        ##############
-
+        # Load kdtrees
         for i, file_path in enumerate(self.files):
 
             # Restart timer
@@ -676,40 +667,40 @@ class Toronto3DDataset(PointCloudDataset):
             cloud_name = self.cloud_names[i]
 
             # Name of the input files
-            KDTree_file = os.path.join(tree_path, f"{cloud_name}_KDTree.pkl")
+            kdtree_file = os.path.join(tree_path, f"{cloud_name}_kdtree.pkl")
             sub_ply_file = os.path.join(tree_path, f"{cloud_name}.ply")
 
             # Check if inputs have already been computed
-            if os.path.exists(KDTree_file):
-                print(f"\nFound KDTree for cloud {cloud_name}, subsampled at {dl:.3f}")
+            if os.path.exists(kdtree_file):
+                print(f"\nFound kdtree for cloud {cloud_name}, subsampled at {dl:.3f}")
 
                 # read ply with data
-                data = read_ply(sub_ply_file)
+                points, colors, labels = read_ply(sub_ply_file)
                 sub_colors = np.vstack(
-                    (data["red"], data["green"], data["blue"], data["scalar_Intensity"])
+                    (colors["red"], colors["green"], colors["blue"], labels["scalar_Intensity"])
                 ).T
-                sub_labels = data["scalar_Label"]
+                sub_labels = labels["scalar_Label"]
 
                 # Read pkl with search tree
-                with open(KDTree_file, "rb") as f:
+                with open(kdtree_file, "rb") as f:
                     search_tree = pickle.load(f)
 
             else:
-                print(f"\nPreparing KDTree for cloud {cloud_name}, subsampled at {dl:.3f}")
+                print(f"\nPreparing kdtree for cloud {cloud_name}, subsampled at {dl:.3f}")
 
                 # Read ply file
-                data = read_ply(file_path)
-                points = np.vstack((data["x"], data["y"], data["z"])).T
-                points = np.asarray(points, dtype=np.float32)
-                colors = np.vstack(
-                    (data["red"], data["green"], data["blue"], data["scalar_Intensity"])
+                points, colors, labels = read_ply(file_path)
+                points_ = np.vstack((points["x"], points["y"], points["z"])).T
+                points_ = np.asarray(points_, dtype=np.float32)
+                colors_ = np.vstack(
+                    (colors["red"], colors["green"], colors["blue"], labels["scalar_Intensity"])
                 ).T
-                colors = np.asarray(colors, dtype=np.float32)
-                labels = np.array(data["scalar_Label"], dtype=np.int32)
+                colors_ = np.asarray(colors_, dtype=np.float32)
+                labels_ = np.array(labels["scalar_Label"], dtype=np.int32)
 
                 # Subsample cloud
                 sub_points, sub_colors, sub_labels = grid_subsampling(
-                    points, features=colors, labels=labels, sampleDl=dl
+                    points_, features=colors_, labels=labels_, sampleDl=dl
                 )
 
                 # Rescale float color and squeeze label
@@ -719,8 +710,8 @@ class Toronto3DDataset(PointCloudDataset):
                 # Get chosen neighborhoods
                 search_tree = KDTree(sub_points, leaf_size=10)
 
-                # Save KDTree
-                with open(KDTree_file, "wb") as f:
+                # Save kdtree
+                with open(kdtree_file, "wb") as f:
                     pickle.dump(search_tree, f)
 
                 # Save ply
@@ -747,10 +738,7 @@ class Toronto3DDataset(PointCloudDataset):
             size = sub_colors.shape[0] * 4 * 7
             print(f"{size * 1e-6:.1f} MB loaded in {time.time() - t0:.1f}s")
 
-        ############################
         # Coarse potential locations
-        ############################
-
         # Only necessary for validation and test sets
         if self.config["input"]["use_potentials"]:
             print("\nPreparing potentials")
@@ -766,12 +754,12 @@ class Toronto3DDataset(PointCloudDataset):
                 cloud_name = self.cloud_names[file_idx]
 
                 # Name of the input files
-                coarse_KDTree_file = os.path.join(tree_path, f"{cloud_name}_coarse_KDTree.pkl")
+                coarse_kdtree_file = os.path.join(tree_path, f"{cloud_name}_coarse_kdtree.pkl")
 
                 # Check if inputs have already been computed
-                if os.path.exists(coarse_KDTree_file):
+                if os.path.exists(coarse_kdtree_file):
                     # Read pkl with search tree
-                    with open(coarse_KDTree_file, "rb") as f:
+                    with open(coarse_kdtree_file, "rb") as f:
                         search_tree = pickle.load(f)
 
                 else:
@@ -782,8 +770,8 @@ class Toronto3DDataset(PointCloudDataset):
                     # Get chosen neighborhoods
                     search_tree = KDTree(coarse_points, leaf_size=10)
 
-                    # Save KDTree
-                    with open(coarse_KDTree_file, "wb") as f:
+                    # Save kdtree
+                    with open(coarse_kdtree_file, "wb") as f:
                         pickle.dump(search_tree, f)
 
                 # Fill data containers
@@ -791,10 +779,7 @@ class Toronto3DDataset(PointCloudDataset):
 
             print(f"Done in {time.time() - t0:.1f}s")
 
-        ######################
         # Reprojection indices
-        ######################
-
         # Get number of clouds
         self.num_clouds = len(self.input_trees)
 
@@ -820,24 +805,22 @@ class Toronto3DDataset(PointCloudDataset):
                     with open(proj_file, "rb") as f:
                         proj_inds, labels = pickle.load(f)
                 else:
-                    data = read_ply(file_path)
-                    points = np.vstack((data["x"], data["y"], data["z"])).T
-                    labels = np.array(data["scalar_Label"], dtype=np.int32)
+                    points, colors, labels = read_ply(file_path)
+                    points_ = np.vstack((points["x"], points["y"], points["z"])).T
+                    labels_ = np.array(labels["scalar_Label"], dtype=np.int32)
 
                     # Compute projection inds
-                    idxs = self.input_trees[i].query(points, return_distance=False)
+                    idxs = self.input_trees[i].query(points_, return_distance=False)
                     proj_inds = np.squeeze(idxs).astype(np.int32)
 
                     # Save
                     with open(proj_file, "wb") as f:
-                        pickle.dump([proj_inds, labels], f)
+                        pickle.dump([proj_inds, labels_], f)
 
                 self.test_proj += [proj_inds]
-                self.validation_labels += [labels]
+                self.validation_labels += [labels_]
                 print(f"{cloud_name} done in {time.time() - t0:.1f}s")
-
         print()
-        return
 
     def load_evaluation_points(self, file_path):
         """
@@ -845,14 +828,20 @@ class Toronto3DDataset(PointCloudDataset):
         """
 
         # Get original points
-        data = read_ply(file_path)
-        return np.vstack((data["x"], data["y"], data["z"])).T
+        points, _, _ = read_ply(file_path)
+        return np.vstack((points["x"], points["y"], points["z"])).T
 
 
 class Toronto3DSampler(Sampler):
-    """Sampler for Toronto3D (with features)"""
+    """
+    Sampler for Toronto3D (with features)
+    """
 
     def __init__(self, dataset: Toronto3DDataset):
+        """
+        Yield next batch indices here. In this dataset, this is a dummy sampler that yield
+        the index of batch element (input sphere) in epoch instead of the list of point indices.
+        """
         Sampler.__init__(self, dataset)
 
         # Dataset used by the sampler (no copy is made in memory)
@@ -862,19 +851,17 @@ class Toronto3DSampler(Sampler):
 
         # Number of step per epoch
         if dataset.task == "train":
-            self.N = dataset.self.config["train"]["epoch_steps"]
+            self.n_ = dataset.config["train"]["epoch_steps"]
         else:
-            self.N = dataset.self.config.validation_size
-
-        return
+            self.n_ = dataset.config.validation_size
 
     def __iter__(self):
-        """Yield next batch indices here. In this dataset, this is a dummy sampler that yield
+        """
+        Yield next batch indices here. In this dataset, this is a dummy sampler that yield
         the index of batch element (input sphere) in epoch instead of the list of point indices.
-
         """
 
-        if not self.config["input"]["use_potentials"]:
+        if not self.dataset.config["input"]["use_potentials"]:
 
             # Initiate current epoch ind
             self.dataset.epoch_i *= 0
@@ -884,7 +871,7 @@ class Toronto3DSampler(Sampler):
             all_epoch_inds = np.zeros((2, 0), dtype=np.int64)
 
             # Number of sphere centers taken per class in each cloud
-            num_centers = self.N * self.dataset.config["train"]["batch_num"]
+            num_centers = self.n_ * self.dataset.config["train"]["batch_num"]
             random_pick_n = int(np.ceil(num_centers / self.dataset.num_classes))
 
             # Choose random points of each class for each cloud
@@ -908,34 +895,34 @@ class Toronto3DSampler(Sampler):
                     all_label_indices = np.hstack(all_label_indices)
 
                     # Select a a random number amongst them
-                    N_inds = all_label_indices.shape[1]
-                    if N_inds < random_pick_n:
+                    n_inds = all_label_indices.shape[1]
+                    if n_inds < random_pick_n:
                         chosen_label_inds = np.zeros((2, 0), dtype=np.int64)
                         while chosen_label_inds.shape[1] < random_pick_n:
                             chosen_label_inds = np.hstack(
                                 (
                                     chosen_label_inds,
-                                    all_label_indices[:, np.random.permutation(N_inds)],
+                                    all_label_indices[:, np.random.permutation(n_inds)],
                                 )
                             )
                         warnings.warn(
                             f"When choosing random epoch indices "
                             f'(config["input"]["use_potentials"]=False), '
                             f"class {label:d}: {self.dataset.label_names[label_ind]} only had "
-                            f"{N_inds:d} available points, while we needed {random_pick_n:d}. "
+                            f"{n_inds:d} available points, while we needed {random_pick_n:d}. "
                             "Repeating indices in the same epoch",
                             stacklevel=2,
                         )
 
-                    elif N_inds < 50 * random_pick_n:
-                        rand_inds = np.random.choice(N_inds, size=random_pick_n, replace=False)
+                    elif n_inds < 50 * random_pick_n:
+                        rand_inds = np.random.choice(n_inds, size=random_pick_n, replace=False)
                         chosen_label_inds = all_label_indices[:, rand_inds]
 
                     else:
                         chosen_label_inds = np.zeros((2, 0), dtype=np.int64)
                         while chosen_label_inds.shape[1] < random_pick_n:
                             rand_inds = np.unique(
-                                np.random.choice(N_inds, size=2 * random_pick_n, replace=True)
+                                np.random.choice(n_inds, size=2 * random_pick_n, replace=True)
                             )
                             chosen_label_inds = np.hstack(
                                 (chosen_label_inds, all_label_indices[:, rand_inds])
@@ -953,20 +940,20 @@ class Toronto3DSampler(Sampler):
             self.dataset.epoch_inds += torch.from_numpy(all_epoch_inds)
 
         # Generator loop
-        yield from range(self.N)
+        yield from range(self.n_)
 
     def __len__(self):
         """
         The number of yielded samples is variable
         """
-        return self.N
+        return self.n_
 
     def fast_calib(self):
-        """This method calibrates the batch sizes while ensuring the potentials are well
+        """
+        This method calibrates the batch sizes while ensuring the potentials are well
         initialized. Indeed on a dataset like Semantic3D, before potential have been updated over
         the dataset, there are chances that all the dense area are picked in the begining and in
         the end, we will have very large batch of small point clouds :return:
-
         """
 
         # Estimated average batch size and target value
@@ -974,8 +961,8 @@ class Toronto3DSampler(Sampler):
         target_b = self.dataset.config["train"]["batch_num"]
 
         # Calibration parameters
-        low_pass_T = 10
-        Kp = 100.0
+        low_pass_t = 10
+        kp = 100.0
         finer = False
         breaking = False
 
@@ -998,7 +985,7 @@ class Toronto3DSampler(Sampler):
                 b = len(test)
 
                 # Update estim_b (low pass filter)
-                estim_b += (b - estim_b) / low_pass_T
+                estim_b += (b - estim_b) / low_pass_t
 
                 # Estimate error (noisy)
                 error = target_b - b
@@ -1009,11 +996,11 @@ class Toronto3DSampler(Sampler):
                     smooth_errors = smooth_errors[1:]
 
                 # Update batch limit with P controller
-                self.dataset.batch_limit += Kp * error
+                self.dataset.batch_limit += kp * error
 
                 # finer low pass filter when closing in
                 if not finer and np.abs(estim_b - target_b) < 1:
-                    low_pass_T = 100
+                    low_pass_t = 100
                     finer = True
 
                 # Convergence
@@ -1045,7 +1032,8 @@ class Toronto3DSampler(Sampler):
                 break
 
     def calibration(self, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
-        """Method performing batch and neighbors calibration.
+        """
+        Method performing batch and neighbors calibration.
 
         Batch calibration: Set "batch_limit" (the maximum number of points allowed in every batch)
         so that the average batch size (number of stacked pointclouds) is the one asked.
@@ -1054,20 +1042,19 @@ class Toronto3DSampler(Sampler):
         allowed in convolutions) so that 90% of the neighborhoods remain untouched. There is a
         limit for each layer.
 
+        :param dataloader:
+        :param untouched_ratio:
+        :param verbose:
+        :param force_redo:
         """
 
-        ##############################
         # Previously saved calibration
-        ##############################
-
         print("\nStarting Calibration (use verbose=True for more details)")
         t0 = time.time()
 
         redo = force_redo
 
         # Batch limit
-        # ***********
-
         # Load batch_limit dictionary
         batch_lim_file = os.path.join(self.calibration_path, "batch_limits.pkl")
         if os.path.exists(batch_lim_file):
@@ -1077,7 +1064,7 @@ class Toronto3DSampler(Sampler):
             batch_lim_dict = {}
 
         # Check if the batch limit associated with current parameters exists
-        if self.config["input"]["use_potentials"]:
+        if self.dataset.config["input"]["use_potentials"]:
             sampler_method = "potentials"
         else:
             sampler_method = "random"
@@ -1102,8 +1089,6 @@ class Toronto3DSampler(Sampler):
             print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         # Neighbors limit
-        # ***************
-
         # Load neighb_limits dictionary
         neighb_lim_file = os.path.join(self.calibration_path, "neighbors_limits.pkl")
         if os.path.exists(neighb_lim_file):
@@ -1118,7 +1103,7 @@ class Toronto3DSampler(Sampler):
 
             dl = self.dataset.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
             if self.dataset.deform_layers[layer_ind]:
-                r = dl * self.dataset.config["kpconv"]["deform_radius"]
+                r = dl * self.dataset.config["train"]["batch_num"]
             else:
                 r = dl * self.dataset.config["kpconv"]["conv_radius"]
 
@@ -1133,7 +1118,7 @@ class Toronto3DSampler(Sampler):
 
         if verbose:
             print("Check neighbors limit dictionary")
-            for layer_ind in range(self.dataset.self.num_layers):
+            for layer_ind in range(self.dataset.num_layers):
                 dl = self.dataset.self.config["kpconv"]["first_subsampling_dl"] * (2**layer_ind)
                 if self.dataset.deform_layers[layer_ind]:
                     r = dl * self.dataset.config["kpconv"]["deform_radius"]
@@ -1151,10 +1136,7 @@ class Toronto3DSampler(Sampler):
 
         if redo:
 
-            ############################
             # Neighbors calib parameters
-            ############################
-
             # From self.config parameter, compute higher bound of neighbors number in a neighborhood
             hist_n = int(
                 np.ceil(4 / 3 * np.pi * (self.dataset.config["kpconv"]["deform_radius"] + 1) ** 3)
@@ -1163,23 +1145,20 @@ class Toronto3DSampler(Sampler):
             # Histogram of neighborhood sizes
             neighb_hists = np.zeros((self.dataset.num_layers, hist_n), dtype=np.int32)
 
-            ########################
             # Batch calib parameters
-            ########################
-
             # Estimated average batch size and target value
             estim_b = 0
             target_b = self.dataset.config["train"]["batch_num"]
 
             # Expected batch size order of magnitude
-            expected_N = 100000
+            expected_n = 100000
 
             # Calibration parameters. Higher means faster but can also become unstable
-            # Reduce Kp/Kd if small GPU: the total number of points per batch will be smaller
-            low_pass_T = 100
-            Kp = expected_N / 200
-            Ki = 0.001 * Kp
-            Kd = 5 * Kp
+            # Reduce kp/kd if small GPU: the total number of points per batch will be smaller
+            low_pass_t = 100
+            kp = expected_n / 200
+            ki = 0.001 * kp
+            kd = 5 * kp
             finer = False
             stabilized = False
 
@@ -1191,8 +1170,8 @@ class Toronto3DSampler(Sampler):
             last_display = time.time()
             i = 0
             breaking = False
-            error_I = 0
-            error_D = 0
+            error_i = 0
+            error_d = 0
             last_error = 0
 
             debug_in = []
@@ -1200,13 +1179,10 @@ class Toronto3DSampler(Sampler):
             debug_b = []
             debug_estim_b = []
 
-            #####################
             # Perform calibration
-            #####################
-
             # number of batch per epoch
             sample_batches = 999
-            for _ in range((sample_batches // self.N) + 1):
+            for _ in range((sample_batches // self.n_) + 1):
                 for batch in dataloader:
 
                     # Update neighborhood histogram
@@ -1221,12 +1197,12 @@ class Toronto3DSampler(Sampler):
                     b = len(batch.cloud_inds)
 
                     # Update estim_b (low pass filter)
-                    estim_b += (b - estim_b) / low_pass_T
+                    estim_b += (b - estim_b) / low_pass_t
 
                     # Estimate error (noisy)
                     error = target_b - b
-                    error_I += error
-                    error_D = error - last_error
+                    error_i += error
+                    error_d = error - last_error
                     last_error = error
 
                     # Save smooth errors for convergene check
@@ -1235,18 +1211,18 @@ class Toronto3DSampler(Sampler):
                         smooth_errors = smooth_errors[1:]
 
                     # Update batch limit with P controller
-                    self.dataset.batch_limit += Kp * error + Ki * error_I + Kd * error_D
+                    self.dataset.batch_limit += kp * error + ki * error_i + kd * error_d
 
                     # Unstability detection
                     if not stabilized and self.dataset.batch_limit < 0:
-                        Kp *= 0.1
-                        Ki *= 0.1
-                        Kd *= 0.1
+                        kp *= 0.1
+                        ki *= 0.1
+                        kd *= 0.1
                         stabilized = True
 
                     # finer low pass filter when closing in
                     if not finer and np.abs(estim_b - target_b) < 1:
-                        low_pass_T = 100
+                        low_pass_t = 100
                         finer = True
 
                     # Convergence
@@ -1274,15 +1250,6 @@ class Toronto3DSampler(Sampler):
 
             # Plot in case we did not reach convergence
             if not breaking:
-                import matplotlib.pyplot as plt
-
-                print(
-                    "ERROR: It seems that the calibration have not reached convergence. "
-                    "Here are some plot to understand why:"
-                )
-                print("If you notice unstability, reduce the expected_N value")
-                print("If convergece is too slow, increase the expected_N value")
-
                 plt.figure()
                 plt.plot(debug_in)
                 plt.plot(debug_out)
@@ -1293,7 +1260,13 @@ class Toronto3DSampler(Sampler):
 
                 plt.show()
 
-                1 / 0
+                raise RuntimeError(
+                    "ERROR: It seems that the calibration have not \
+                                  reached convergence. \
+                                  Here are some plot to understand why:\
+                                  If you notice unstability, reduce the expected_n value\
+                                  If convergece is too slow, increase the expected_n value"
+                )
 
             # Use collected neighbor histogram to get neighbors limit
             cumsum = np.cumsum(neighb_hists.T, axis=0)
@@ -1310,8 +1283,7 @@ class Toronto3DSampler(Sampler):
                 print("\n**************************************************\n")
                 line0 = "neighbors_num "
                 for layer in range(neighb_hists.shape[0]):
-                    line0 += f"|  layer {layer:2d}  "
-                print(line0)
+                    line0 = line0.join(f"|  layer {layer:2d}  ")
                 for neighb_size in range(hist_n):
                     line0 = f"     {neighb_size:4d}     "
                     for layer in range(neighb_hists.shape[0]):
@@ -1319,16 +1291,14 @@ class Toronto3DSampler(Sampler):
                             color = BColors.FAIL
                         else:
                             color = BColors.OKGREEN
-                        line0 += "|{:}{:10d}{:}  ".format(
-                            color,
-                            neighb_hists[layer, neighb_size],
-                            BColors.ENDC,
+                        line0 = line0.join(
+                            f"|{color}{neighb_hists[layer, neighb_size]:10d}{BColors.ENDC}  "
                         )
 
                     print(line0)
 
                 print("\n**************************************************\n")
-                print("\nchosen neighbors limits: ", percentiles)
+                print("\nChosen neighbors limits: ", percentiles)
                 print()
 
             # Save batch_limit dictionary
@@ -1357,11 +1327,12 @@ class Toronto3DSampler(Sampler):
                 pickle.dump(neighb_lim_dict, file)
 
         print(f"Calibration done in {time.time() - t0:.1f}s\n")
-        return
 
 
 class Toronto3DCustomBatch:
-    """Custom batch definition with memory pinning for Toronto3D (with features)"""
+    """
+    Custom batch definition with memory pinning for Toronto3D (with features)
+    """
 
     def __init__(self, input_list):
 
@@ -1369,20 +1340,20 @@ class Toronto3DCustomBatch:
         input_list = input_list[0]
 
         # Number of layers
-        L = (len(input_list) - 7) // 5
+        layers = (len(input_list) - 7) // 5
 
         # Extract input tensors from the list of numpy array
         ind = 0
-        self.points = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.neighbors = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.pools = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.upsamples = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.lengths = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
+        self.points = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
+        self.neighbors = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
+        self.pools = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
+        self.upsamples = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
+        self.lengths = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
         self.features = torch.from_numpy(input_list[ind])
         ind += 1
         self.labels = torch.from_numpy(input_list[ind])
@@ -1396,8 +1367,6 @@ class Toronto3DCustomBatch:
         self.center_inds = torch.from_numpy(input_list[ind])
         ind += 1
         self.input_inds = torch.from_numpy(input_list[ind])
-
-        return
 
     def pin_memory(self):
         """
@@ -1420,7 +1389,6 @@ class Toronto3DCustomBatch:
         return self
 
     def to(self, device):
-
         self.points = [in_tensor.to(device) for in_tensor in self.points]
         self.neighbors = [in_tensor.to(device) for in_tensor in self.neighbors]
         self.pools = [in_tensor.to(device) for in_tensor in self.pools]
@@ -1437,22 +1405,28 @@ class Toronto3DCustomBatch:
         return self
 
     def unstack_points(self, layer=None):
-        """Unstack the points"""
+        """
+        Unstack the points
+        """
         return self.unstack_elements("points", layer)
 
     def unstack_neighbors(self, layer=None):
-        """Unstack the neighbors indices"""
+        """
+        Unstack the neighbors indices
+        """
         return self.unstack_elements("neighbors", layer)
 
     def unstack_pools(self, layer=None):
-        """Unstack the pooling indices"""
+        """
+        Unstack the pooling indices
+        """
         return self.unstack_elements("pools", layer)
 
     def unstack_elements(self, element_name, layer=None, to_numpy=True):
-        """Return a list of the stacked elements in the batch at a certain layer.
+        """
+        Return a list of the stacked elements in the batch at a certain layer.
 
         If no layer is given, then return all layers.
-
         """
 
         if element_name == "points":
@@ -1500,12 +1474,14 @@ class Toronto3DCustomBatch:
         return all_p_list
 
 
-def Toronto3DCollate(batch_data):
+def toronto_3d_collate(batch_data):
     return Toronto3DCustomBatch(batch_data)
 
 
 def debug_upsampling(dataset, loader):
-    """Shows which labels are sampled according to strategy chosen"""
+    """
+    Shows which labels are sampled according to strategy chosen
+    """
 
     for _ in range(10):
 
@@ -1538,13 +1514,15 @@ def debug_upsampling(dataset, loader):
 
 
 def debug_timing(dataset, loader):
-    """Timing of generator function"""
+    """
+    Timing of generator function
+    """
 
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
     estim_b = dataset.self.config["train"]["batch_num"]
-    estim_N = 0
+    estim_n = 0
 
     for _ in range(10):
 
@@ -1556,7 +1534,7 @@ def debug_timing(dataset, loader):
 
             # Update estim_b (low pass filter)
             estim_b += (len(batch.cloud_inds) - estim_b) / 100
-            estim_N += (batch.features.shape[0] - estim_N) / 10
+            estim_n += (batch.features.shape[0] - estim_n) / 10
 
             # Pause simulating computations
             time.sleep(0.05)
@@ -1570,7 +1548,7 @@ def debug_timing(dataset, loader):
                 last_display = t[-1]
                 message = "Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f} - {:.0f}"
                 print(
-                    message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b, estim_N)
+                    message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b, estim_n)
                 )
 
         print("************* Epoch ended *************")
@@ -1580,24 +1558,23 @@ def debug_timing(dataset, loader):
 
 
 def debug_show_clouds(dataset, config, loader):
-
     for _ in range(10):
-        L = config["model"]["num_layers"]
+        layers = config["model"]["num_layers"]
 
         for batch in loader:
 
             # Print characteristics of input tensors
             print("\nPoints tensors")
-            for i in range(L):
+            for i in range(layers):
                 print(batch.points[i].dtype, batch.points[i].shape)
             print("\nNeigbors tensors")
-            for i in range(L):
+            for i in range(layers):
                 print(batch.neighbors[i].dtype, batch.neighbors[i].shape)
             print("\nPools tensors")
-            for i in range(L):
+            for i in range(layers):
                 print(batch.pools[i].dtype, batch.pools[i].shape)
             print("\nStack lengths")
-            for i in range(L):
+            for i in range(layers):
                 print(batch.lengths[i].dtype, batch.lengths[i].shape)
             print("\nFeatures")
             print(batch.features.dtype, batch.features.shape)
@@ -1629,8 +1606,9 @@ def debug_show_clouds(dataset, config, loader):
 
 
 def debug_batch_and_neighbors_calib(dataset, loader):
-    """Timing of generator function"""
-
+    """
+    Timing of generator function
+    """
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)

@@ -1,3 +1,11 @@
+"""
+ModelNet40 Dataset Class, used to manage data that can be downloaded here :
+https://www.kaggle.com/datasets/balraj98/modelnet40-princeton-3d-object-dataset
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
 import os
 import pickle
 import time
@@ -12,7 +20,9 @@ from kpconv_torch.utils.mayavi_visu import show_input_batch
 
 
 class ModelNet40Dataset(PointCloudDataset):
-    """Class to handle Modelnet 40 dataset."""
+    """
+    Class to handle ModelNet40 dataset
+    """
 
     def __init__(
         self,
@@ -54,10 +64,7 @@ class ModelNet40Dataset(PointCloudDataset):
                 self.config["train"]["validation_size"] * self.config["train"]["batch_num"],
             )
 
-        #############
         # Load models
-        #############
-
         if 0 < self.config["kpconv"]["first_subsampling_dl"] <= 0.01:
             raise ValueError("subsampling_parameter too low (should be over 1 cm")
 
@@ -67,40 +74,34 @@ class ModelNet40Dataset(PointCloudDataset):
             self.input_labels,
         ) = self.load_subsampled_clouds(orient_correction)
 
-        return
-
     def __len__(self):
         """
-        Return the length of data here
+        Returns the length of data
         """
         return self.num_models
 
     def __getitem__(self, idx_list):
-        """The main thread gives a list of indices to load a batch. Each worker is going to work in
+        """
+        The main thread gives a list of indices to load a batch. Each worker is going to work in
         parallel to load a different list of indices.
-
         """
 
-        ###################
         # Gather batch data
-        ###################
-
         tp_list = []
         tn_list = []
         tl_list = []
         ti_list = []
         s_list = []
-        R_list = []
+        r_list = []
 
         for p_i in idx_list:
-
             # Get points and labels
             points = self.input_points[p_i].astype(np.float32)
             normals = self.input_normals[p_i].astype(np.float32)
             label = self.label_to_idx[self.input_labels[p_i]]
 
             # Data augmentation
-            points, normals, scale, R = self.augmentation_transform(points, normals)
+            points, normals, scale, var_r = self.augmentation_transform(points, normals)
 
             # Stack batch
             tp_list += [points]
@@ -108,19 +109,16 @@ class ModelNet40Dataset(PointCloudDataset):
             tl_list += [label]
             ti_list += [p_i]
             s_list += [scale]
-            R_list += [R]
+            r_list += [var_r]
 
-        ###################
         # Concatenate batch
-        ###################
-
         stacked_points = np.concatenate(tp_list, axis=0)
         stacked_normals = np.concatenate(tn_list, axis=0)
         labels = np.array(tl_list, dtype=np.int64)
         model_inds = np.array(ti_list, dtype=np.int32)
         stack_lengths = np.array([tp.shape[0] for tp in tp_list], dtype=np.int32)
         scales = np.array(s_list, dtype=np.float32)
-        rots = np.stack(R_list, axis=0)
+        rots = np.stack(r_list, axis=0)
 
         # Input features
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
@@ -131,13 +129,8 @@ class ModelNet40Dataset(PointCloudDataset):
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
 
-        #######################
         # Create network inputs
-        #######################
-        #
         #   Points, neighbors, pooling indices for each layers
-        #
-
         # Get the whole input list
         input_list = self.classification_inputs(
             stacked_points, stacked_features, labels, stack_lengths
@@ -149,9 +142,12 @@ class ModelNet40Dataset(PointCloudDataset):
         return input_list
 
     def load_subsampled_clouds(self, orient_correction):
+        """
+        :param orient_correction:
+        """
 
         # Restart timer
-        t0 = time.time()
+        start_time = time.time()
 
         # Load wanted points if possible
         if self.task == "train":
@@ -159,9 +155,9 @@ class ModelNet40Dataset(PointCloudDataset):
         else:
             task = "test"
 
-        t = self.config["kpconv"]["first_subsampling_dl"]
-        print(f"\nLoading {task} points subsampled at {t:3f}")
-        filename = os.path.join(self.datapath, f"{task}_{t:3f}_record.pkl")
+        subsampling_dl = self.config["kpconv"]["first_subsampling_dl"]
+        print(f"\nLoading {task} points subsampled at {subsampling_dl:3f}")
+        filename = os.path.join(self.datapath, f"{task}_{subsampling_dl:3f}_record.pkl")
 
         if os.path.exists(filename):
             with open(filename, "rb") as file:
@@ -183,12 +179,12 @@ class ModelNet40Dataset(PointCloudDataset):
             input_normals = []
 
             # Advanced display
-            N = len(names)
+            n_names = len(names)
             progress_n = 30
             fmt_str = "[{:<" + str(progress_n) + "}] {:5.1f}%"
 
             # Collect point clouds
-            for i, cloud_name in enumerate(names):
+            for idx, cloud_name in enumerate(names):
 
                 # Read points
                 class_folder = "_".join(cloud_name.split("_")[:-1])
@@ -208,7 +204,7 @@ class ModelNet40Dataset(PointCloudDataset):
 
                 print("", end="\r")
                 print(
-                    fmt_str.format("#" * ((i * progress_n) // N), 100 * i / N),
+                    fmt_str.format("#" * ((idx * progress_n) // n_names), 100 * idx / n_names),
                     end="",
                     flush=True,
                 )
@@ -231,7 +227,7 @@ class ModelNet40Dataset(PointCloudDataset):
 
         lengths = [p.shape[0] for p in input_points]
         sizes = [length * 4 * 6 for length in lengths]
-        print(f"{np.sum(sizes) * 1e-6:.1f} MB loaded in {time.time() - t0:.1f}s")
+        print(f"{np.sum(sizes) * 1e-6:.1f} MB loaded in {time.time() - start_time:.1f}s")
 
         if orient_correction:
             input_points = [pp[:, [0, 2, 1]] for pp in input_points]
@@ -241,7 +237,9 @@ class ModelNet40Dataset(PointCloudDataset):
 
 
 class ModelNet40Sampler(Sampler):
-    """Sampler for ModelNet40"""
+    """
+    Sampler for ModelNet40
+    """
 
     def __init__(
         self,
@@ -271,17 +269,12 @@ class ModelNet40Sampler(Sampler):
         # Initialize value for batch limit (max number of points per batch).
         self.batch_limit = 10000
 
-        return
-
     def __iter__(self):
         """
         Yield next batch indices here
         """
 
-        ##########################################
         # Initialize the list of generated indices
-        ##########################################
-
         if self.use_potential:
             if self.balance_labels:
 
@@ -331,10 +324,7 @@ class ModelNet40Sampler(Sampler):
             else:
                 gen_indices = np.random.permutation(self.dataset.num_models)[: self.dataset.epoch_n]
 
-        ################
         # Generator loop
-        ################
-
         # Initialize concatenation lists
         ti_list = []
         batch_n = 0
@@ -361,14 +351,9 @@ class ModelNet40Sampler(Sampler):
 
         return 0
 
-    def __len__(self):
-        """
-        The number of yielded samples is variable
-        """
-        return None
-
     def calibration(self, dataloader, untouched_ratio=0.9, verbose=False):
-        """Method performing batch and neighbors calibration.
+        """
+        Method performing batch and neighbors calibration.
 
         Batch calibration: Set "batch_limit" (the maximum number of points allowed in every batch)
         so that the average batch size (number of stacked pointclouds) is the one asked.
@@ -376,21 +361,15 @@ class ModelNet40Sampler(Sampler):
         Neighbors calibration: Set the "neighborhood_limits" (the maximum number of neighbors
         allowed in convolutions) so that 90% of the neighborhoods remain untouched. There is a
         limit for each layer.
-
         """
 
-        ##############################
         # Previously saved calibration
-        ##############################
-
         print("\nStarting Calibration (use verbose=True for more details)")
         t0 = time.time()
 
         redo = False
 
         # Batch limit
-        # ***********
-
         # Load batch_limit dictionary
         batch_lim_file = os.path.join(self.calibration_path, "batch_limits.pkl")
         if os.path.exists(batch_lim_file):
@@ -400,10 +379,9 @@ class ModelNet40Sampler(Sampler):
             batch_lim_dict = {}
 
         # Check if the batch limit associated with current parameters exists
-        key = "{:.3f}_{:d}".format(
-            self.dataset.config["kpconv"]["first_subsampling_dl"],
-            self.dataset.config["train"]["batch_num"],
-        )
+        subsampling_dl = self.dataset.config["kpconv"]["first_subsampling_dl"]
+        batch_num = self.dataset.config["train"]["batch_num"]
+        key = f"{subsampling_dl:.3f}_{batch_num:d}"
         if key in batch_lim_dict:
             self.batch_limit = batch_lim_dict[key]
         else:
@@ -421,8 +399,6 @@ class ModelNet40Sampler(Sampler):
             print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         # Neighbors limit
-        # ***************
-
         # Load neighb_limits dictionary
         neighb_lim_file = os.path.join(self.calibration_path, "neighbors_limits.pkl")
         if os.path.exists(neighb_lim_file):
@@ -469,10 +445,7 @@ class ModelNet40Sampler(Sampler):
                 print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         if redo:
-            ############################
             # Neighbors calib parameters
-            ############################
-
             # From config parameter, compute higher bound of neighbors number in a neighborhood
             hist_n = int(
                 np.ceil(4 / 3 * np.pi * (self.dataset.config["kpconv"]["conv_radius"] + 1) ** 3)
@@ -481,17 +454,14 @@ class ModelNet40Sampler(Sampler):
             # Histogram of neighborhood sizes
             neighb_hists = np.zeros((self.dataset.num_layers, hist_n), dtype=np.int32)
 
-            ########################
             # Batch calib parameters
-            ########################
-
             # Estimated average batch size and target value
             estim_b = 0
             target_b = self.dataset.config["train"]["batch_num"]
 
             # Calibration parameters
-            low_pass_T = 10
-            Kp = 100.0
+            low_pass_t = 10
+            kp = 100.0
             finer = False
 
             # Convergence parameters
@@ -503,10 +473,7 @@ class ModelNet40Sampler(Sampler):
             i = 0
             breaking = False
 
-            #####################
             # Perform calibration
-            #####################
-
             for _ in range(10):
                 for batch in dataloader:
 
@@ -522,7 +489,7 @@ class ModelNet40Sampler(Sampler):
                     b = len(batch.labels)
 
                     # Update estim_b (low pass filter)
-                    estim_b += (b - estim_b) / low_pass_T
+                    estim_b += (b - estim_b) / low_pass_t
 
                     # Estimate error (noisy)
                     error = target_b - b
@@ -533,11 +500,11 @@ class ModelNet40Sampler(Sampler):
                         smooth_errors = smooth_errors[1:]
 
                     # Update batch limit with P controller
-                    self.batch_limit += Kp * error
+                    self.batch_limit += kp * error
 
                     # finer low pass filter when closing in
                     if not finer and np.abs(estim_b - target_b) < 1:
-                        low_pass_T = 100
+                        low_pass_t = 100
                         finer = True
 
                     # Convergence
@@ -563,7 +530,6 @@ class ModelNet40Sampler(Sampler):
             self.dataset.neighborhood_limits = percentiles
 
             if verbose:
-
                 # Crop histogram
                 while np.sum(neighb_hists[:, -1]) == 0:
                     neighb_hists = neighb_hists[:, :-1]
@@ -581,8 +547,8 @@ class ModelNet40Sampler(Sampler):
                             color = BColors.FAIL
                         else:
                             color = BColors.OKGREEN
-                        line0 += "|{:}{:10d}{:}  ".format(
-                            color, neighb_hists[layer, neighb_size], BColors.ENDC
+                        line0 = line0.join(
+                            f"|{color}{neighb_hists[layer, neighb_size]:10d}{BColors.ENDC}  "
                         )
                     print(line0)
 
@@ -591,10 +557,9 @@ class ModelNet40Sampler(Sampler):
                 print()
 
             # Save batch_limit dictionary
-            key = "{:.3f}_{:d}".format(
-                self.dataset.config["kpconv"]["first_subsampling_dl"],
-                self.dataset.config["train"]["batch_num"],
-            )
+            subsampling_dl = self.dataset.config["kpconv"]["first_subsampling_dl"]
+            batch_num = self.dataset.config["train"]["batch_num"]
+            key = "{subsampling_dl:.3f}_{batch_num:d}"
             batch_lim_dict[key] = self.batch_limit
             with open(batch_lim_file, "wb") as file:
                 pickle.dump(batch_lim_dict, file)
@@ -612,30 +577,34 @@ class ModelNet40Sampler(Sampler):
                 pickle.dump(neighb_lim_dict, file)
 
         print(f"Calibration done in {time.time() - t0:.1f}s\n")
-        return
 
 
 class ModelNet40CustomBatch:
-    """Custom batch definition with memory pinning for ModelNet40"""
+    """
+    Custom batch definition with memory pinning for ModelNet40
+    """
 
     def __init__(self, input_list):
+        """
+        :param input_list:
+        """
 
         # Get rid of batch dimension
         input_list = input_list[0]
 
         # Number of layers
-        L = (len(input_list) - 5) // 4
+        layers = (len(input_list) - 5) // 4
 
         # Extract input tensors from the list of numpy array
         ind = 0
-        self.points = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.neighbors = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.pools = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.lengths = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
+        self.points = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
+        self.neighbors = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
+        self.pools = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
+        self.lengths = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + layers]]
+        ind += layers
         self.features = torch.from_numpy(input_list[ind])
         ind += 1
         self.labels = torch.from_numpy(input_list[ind])
@@ -645,8 +614,6 @@ class ModelNet40CustomBatch:
         self.rots = torch.from_numpy(input_list[ind])
         ind += 1
         self.model_inds = torch.from_numpy(input_list[ind])
-
-        return
 
     def pin_memory(self):
         """
@@ -666,6 +633,9 @@ class ModelNet40CustomBatch:
         return self
 
     def to(self, device):
+        """
+        :param device
+        """
 
         self.points = [in_tensor.to(device) for in_tensor in self.points]
         self.neighbors = [in_tensor.to(device) for in_tensor in self.neighbors]
@@ -677,25 +647,29 @@ class ModelNet40CustomBatch:
         self.rots = self.rots.to(device)
         self.model_inds = self.model_inds.to(device)
 
-        return self
-
     def unstack_points(self, layer=None):
-        """Unstack the points"""
+        """
+        Unstack the points
+        """
         return self.unstack_elements("points", layer)
 
     def unstack_neighbors(self, layer=None):
-        """Unstack the neighbors indices"""
+        """
+        Unstack the neighbors indices
+        """
         return self.unstack_elements("neighbors", layer)
 
     def unstack_pools(self, layer=None):
-        """Unstack the pooling indices"""
+        """
+        Unstack the pooling indices
+        """
         return self.unstack_elements("pools", layer)
 
     def unstack_elements(self, element_name, layer=None, to_numpy=True):
-        """Return a list of the stacked elements in the batch at a certain layer.
+        """
+        Return a list of the stacked elements in the batch at a certain layer.
 
         If no layer is given, then return all layers.
-
         """
 
         if element_name == "points":
@@ -712,7 +686,7 @@ class ModelNet40CustomBatch:
 
             if layer is None or layer == layer_i:
 
-                i0 = 0
+                i_0 = 0
                 p_list = []
                 if element_name == "pools":
                     lengths = self.lengths[layer_i + 1]
@@ -721,14 +695,14 @@ class ModelNet40CustomBatch:
 
                 for b_i, length in enumerate(lengths):
 
-                    elem = layer_elems[i0 : i0 + length]
+                    elem = layer_elems[i_0 : i_0 + length]
                     if element_name == "neighbors":
                         elem[elem >= self.points[layer_i].shape[0]] = -1
-                        elem[elem >= 0] -= i0
+                        elem[elem >= 0] -= i_0
                     elif element_name == "pools":
                         elem[elem >= self.points[layer_i].shape[0]] = -1
                         elem[elem >= 0] -= torch.sum(self.lengths[layer_i][:b_i])
-                    i0 += length
+                    i_0 += length
 
                     if to_numpy:
                         p_list.append(elem.numpy())
@@ -743,12 +717,14 @@ class ModelNet40CustomBatch:
         return all_p_list
 
 
-def ModelNet40Collate(batch_data):
+def modelnet40_collate(batch_data):
     return ModelNet40CustomBatch(batch_data)
 
 
-def debug_sampling(dataset, sampler, loader):
-    """Shows which labels are sampled according to strategy chosen"""
+def debug_sampling(dataset, loader):
+    """
+    Shows which labels are sampled according to strategy chosen
+    """
     label_sum = np.zeros((dataset.num_classes), dtype=np.int32)
     for _ in range(10):
 
@@ -764,10 +740,12 @@ def debug_sampling(dataset, sampler, loader):
     print(counts)
 
 
-def debug_timing(dataset, sampler, loader):
-    """Timing of generator function"""
+def debug_timing(dataset, loader):
+    """
+    Timing of generator function
+    """
 
-    t = [time.time()]
+    timers = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
     estim_b = dataset.config["train"]["batch_num"]
@@ -777,22 +755,22 @@ def debug_timing(dataset, sampler, loader):
         for batch_i, batch in enumerate(loader):
 
             # New time
-            t = t[-1:]
-            t += [time.time()]
+            timers = timers[-1:]
+            timers += [time.time()]
 
             # Update estim_b (low pass filter)
             estim_b += (len(batch.labels) - estim_b) / 100
 
             # Pause simulating computations
             time.sleep(0.050)
-            t += [time.time()]
+            timers += [time.time()]
 
             # Average timing
-            mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
+            mean_dt = 0.9 * mean_dt + 0.1 * (np.array(timers[1:]) - np.array(timers[:-1]))
 
             # Console display (only one per second)
-            if (t[-1] - last_display) > -1.0:
-                last_display = t[-1]
+            if (timers[-1] - last_display) > -1.0:
+                last_display = timers[-1]
                 message = "Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f}"
                 print(message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b))
 
@@ -803,24 +781,23 @@ def debug_timing(dataset, sampler, loader):
 
 
 def debug_show_clouds(dataset, config, loader):
-
     for _ in range(10):
-        L = config["model"]["num_layers"]
+        layers = config["model"]["num_layers"]
 
         for batch in loader:
 
             # Print characteristics of input tensors
             print("\nPoints tensors")
-            for i in range(L):
+            for i in range(layers):
                 print(batch.points[i].dtype, batch.points[i].shape)
             print("\nNeigbors tensors")
-            for i in range(L):
+            for i in range(layers):
                 print(batch.neighbors[i].dtype, batch.neighbors[i].shape)
             print("\nPools tensors")
-            for i in range(L):
+            for i in range(layers):
                 print(batch.pools[i].dtype, batch.pools[i].shape)
             print("\nStack lengths")
-            for i in range(L):
+            for i in range(layers):
                 print(batch.lengths[i].dtype, batch.lengths[i].shape)
             print("\nFeatures")
             print(batch.features.dtype, batch.features.shape)
@@ -851,10 +828,12 @@ def debug_show_clouds(dataset, config, loader):
     print(counts)
 
 
-def debug_batch_and_neighbors_calib(dataset, sampler, loader):
-    """Timing of generator function"""
+def debug_batch_and_neighbors_calib(dataset, loader):
+    """
+    Timing of generator function
+    """
 
-    t = [time.time()]
+    timer = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
 
@@ -863,19 +842,19 @@ def debug_batch_and_neighbors_calib(dataset, sampler, loader):
         for batch_i, _ in enumerate(loader):
 
             # New time
-            t = t[-1:]
-            t += [time.time()]
+            timer = timer[-1:]
+            timer += [time.time()]
 
             # Pause simulating computations
             time.sleep(0.01)
-            t += [time.time()]
+            timer += [time.time()]
 
             # Average timing
-            mean_dt = 0.9 * mean_dt + 0.1 * (np.array(t[1:]) - np.array(t[:-1]))
+            mean_dt = 0.9 * mean_dt + 0.1 * (np.array(timer[1:]) - np.array(timer[:-1]))
 
             # Console display (only one per second)
-            if (t[-1] - last_display) > 1.0:
-                last_display = t[-1]
+            if (timer[-1] - last_display) > 1.0:
+                last_display = timer[-1]
                 message = "Step {:08d} -> Average timings (ms/batch) {:8.2f} {:8.2f} "
                 print(message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1]))
 
@@ -886,7 +865,9 @@ def debug_batch_and_neighbors_calib(dataset, sampler, loader):
 
 
 class ModelNet40WorkerInitDebug:
-    """Callable class that Initializes workers."""
+    """
+    Callable class that initializes workers
+    """
 
     def __init__(self, dataset):
         self.dataset = dataset
@@ -908,5 +889,3 @@ class ModelNet40WorkerInitDebug:
         print(self.dataset.input_labels.__array_interface__["data"])
 
         # configure the dataset to only process the split workload
-
-        return

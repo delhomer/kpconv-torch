@@ -1,3 +1,10 @@
+"""
+ModelTrainer class
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
 import os
 import time
 from pathlib import Path
@@ -43,14 +50,14 @@ class ModelTrainer:
         """
 
         self.config = config
+
+        # Number of classes predicted by the model
         self.num_classes = len(self.config["model"]["label_to_names"])
 
         # Learning rate decays, dictionary of all decay values with their epoch {epoch: decay}
         self.lr_decays = {i: 0.1 ** (1 / 150) for i in range(1, config["train"]["max_epoch"])}
 
-        ############
         # Parameters
-        ############
         # Epoch index
         self.epoch = 0
         self.step = 0
@@ -61,9 +68,9 @@ class ModelTrainer:
         deform_lr = config["train"]["learning_rate"] * config["train"]["deform_lr_factor"]
         self.optimizer = torch.optim.SGD(
             [{"params": other_params}, {"params": deform_params, "lr": deform_lr}],
-            lr=self.config["train"]["learning_rate"],
-            momentum=self.config["train"]["momentum"],
-            weight_decay=self.config["train"]["weight_decay"],
+            lr=config["train"]["learning_rate"],
+            momentum=config["train"]["momentum"],
+            weight_decay=config["train"]["weight_decay"],
         )
 
         # Choose to train on CPU or GPU
@@ -73,10 +80,7 @@ class ModelTrainer:
             self.device = torch.device("cpu")
         net.to(self.device)
 
-        ##########################
         # Load previous checkpoint
-        ##########################
-
         if chkp_path is not None:
             if finetune:
                 checkpoint = torch.load(chkp_path)
@@ -96,17 +100,12 @@ class ModelTrainer:
         if config["model"]["saving"]:
             save_config(self.train_save_path, config)
 
-        return
-
     def train(self, net, training_loader, val_loader, chosen_log):
         """
         Train the model on a particular dataset.
         """
 
-        ################
         # Initialization
-        ################
-
         if self.config["model"]["saving"]:
             # Training log file
             if not (self.train_save_path / "training.txt").exists():
@@ -147,10 +146,7 @@ class ModelTrainer:
                 if self.config["model"]["saving"] and not os.path.exists(PID_file):
                     continue
 
-                ##################
                 # Processing batch
-                ##################
-
                 # New time
                 t = t[-1:]
                 t += [time.time()]
@@ -224,10 +220,7 @@ class ModelTrainer:
 
                 self.step += 1
 
-            ##############
             # End of epoch
-            ##############
-
             # Remove File for kill signal if last epoch before the end
             if epoch == self.config["train"]["max_epoch"] - 1 and os.path.exists(PID_file):
                 os.remove(PID_file)
@@ -269,13 +262,9 @@ class ModelTrainer:
             # Check kill signal (running_PID.txt deleted)
             if self.config["model"]["saving"] and not os.path.exists(PID_file):
                 break
-
         print("Finished Training")
-        return
 
     # Validation methods
-    # ------------------------------------------------------------------------------------------------------------------
-
     def validation(self, net, val_loader):
         if self.config["input"]["task"] == "classification":
             self.object_classification_validation(net, val_loader)
@@ -296,10 +285,7 @@ class ModelTrainer:
         :param config: configuration object
         """
 
-        ############
         # Initialize
-        ############
-
         # Choose validation smoothing parameter (0 for no smothing, 0.99 for big smoothing)
         val_smooth = 0.95
 
@@ -309,10 +295,7 @@ class ModelTrainer:
         if not hasattr(self, "val_probs"):
             self.val_probs = np.zeros((val_loader.dataset.num_models, self.num_classes))
 
-        #####################
         # Network predictions
-        #####################
-
         probs = []
         targets = []
         obj_inds = []
@@ -362,16 +345,10 @@ class ModelTrainer:
         targets = np.hstack(targets)
         obj_inds = np.hstack(obj_inds)
 
-        ###################
         # Voting validation
-        ###################
-
         self.val_probs[obj_inds] = val_smooth * self.val_probs[obj_inds] + (1 - val_smooth) * probs
 
-        ############
         # Confusions
-        ############
-
         validation_labels = np.array(val_loader.dataset.label_values)
 
         # Compute classification results
@@ -415,10 +392,7 @@ class ModelTrainer:
         Validation method for cloud segmentation models
         """
 
-        ############
         # Initialize
-        ############
-
         t0 = time.time()
 
         # Choose validation smoothing parameter (0 for no smothing, 0.99 for big smoothing)
@@ -451,10 +425,7 @@ class ModelTrainer:
                     )
                     i += 1
 
-        #####################
         # Network predictions
-        #####################
-
         predictions = []
         targets = []
 
@@ -487,8 +458,6 @@ class ModelTrainer:
                 torch.cuda.synchronize(self.device)
 
             # Get predictions and labels per instance
-            # ***************************************
-
             i0 = 0
             for b_i, length in enumerate(lengths):
 
@@ -661,17 +630,12 @@ class ModelTrainer:
             print(f"Save2 ..... {t7 - t6:.1f}s")
             print("\n************************\n")
 
-        return
-
     def slam_segmentation_validation(self, net, val_loader, debug=True):
         """
         Validation method for slam segmentation models
         """
 
-        ############
         # Initialize
-        ############
-
         t0 = time.time()
 
         # Do not validate if dataset has no validation cloud
@@ -692,10 +656,7 @@ class ModelTrainer:
         # Number of classes including ignored labels
         nc_tot = val_loader.dataset.num_classes
 
-        #####################
         # Network predictions
-        #####################
-
         predictions = []
         targets = []
         inds = []
@@ -731,8 +692,6 @@ class ModelTrainer:
                 torch.cuda.synchronize(self.device)
 
             # Get predictions and labels per instance
-            # ***************************************
-
             i0 = 0
             for b_i, length in enumerate(lengths):
 
@@ -833,10 +792,7 @@ class ModelTrainer:
 
         t3 = time.time()
 
-        #######################################
         # Results on this subpart of validation
-        #######################################
-
         # Sum all confusions
         C = np.sum(Confs, axis=0).astype(np.float32)
 
@@ -852,10 +808,7 @@ class ModelTrainer:
         # Objects IoU
         IoUs = IoU_from_confusions(C)
 
-        #####################################
         # Results on the whole validation set
-        #####################################
-
         t4 = time.time()
 
         # Sum all validation confusions
@@ -925,5 +878,3 @@ class ModelTrainer:
             print(f"IoU2 ...... {t5 - t4:.1f}s")
             print(f"Save ...... {t6 - t5:.1f}s")
             print("\n************************\n")
-
-        return

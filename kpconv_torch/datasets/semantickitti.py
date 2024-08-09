@@ -1,3 +1,11 @@
+"""
+SemanticKitti Dataset Class, used to manage data that can be downloaded here :
+https://www.semantic-kitti.org/
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
 from multiprocessing import Lock
 import os
 import pickle
@@ -13,7 +21,9 @@ from kpconv_torch.utils.config import BColors
 
 
 class SemanticKittiDataset(PointCloudDataset):
-    """Class to handle SemanticKitti dataset."""
+    """
+    Class to handle SemanticKitti dataset
+    """
 
     def __init__(
         self,
@@ -52,9 +62,7 @@ class SemanticKittiDataset(PointCloudDataset):
             frames = np.sort([vf[:-4] for vf in os.listdir(velo_path) if vf.endswith(".bin")])
             self.frames.append(frames)
 
-        ###########################
         # Object classes parameters
-        ###########################
         if self.config["kpconv"]["n_frames"] < 1:
             raise ValueError("number of frames has to be >= 1")
 
@@ -76,10 +84,7 @@ class SemanticKittiDataset(PointCloudDataset):
             k: all_labels[v] for k, v in learning_map_inv.items()
         }
 
-        ##################
         # Load calibration
-        ##################
-
         # Init variables
         self.calibrations = []
         self.times = []
@@ -92,10 +97,7 @@ class SemanticKittiDataset(PointCloudDataset):
         # Load everything
         self.load_calib_poses()
 
-        ############################
         # Batch selection parameters
-        ############################
-
         # Initialize value for batch limit (max number of points per batch).
         self.batch_limit = torch.tensor([1], dtype=torch.float32)
         self.batch_limit.share_memory_()
@@ -107,24 +109,24 @@ class SemanticKittiDataset(PointCloudDataset):
         # If true, the same amount of frames is picked per class
         self.balance_classes = balance_classes
 
-        # Choose batch_num in_R and max_in_p depending on validation or training
+        # Choose batch_num input_radius and max_in_p depending on validation or training
         if self.task == "train":
             self.batch_num = config["train"]["batch_num"]
             self.max_in_p = config["kpconv"]["max_in_points"]
-            self.in_R = config["input"]["sphere_radius"]
+            self.input_radius = config["input"]["sphere_radius"]
         else:
             self.batch_num = config["train"]["val_batch_num"]
             self.max_in_p = config["kpconv"]["max_val_points"]
-            self.in_R = config["kpconv"]["val_radius"]
+            self.input_radius = config["kpconv"]["val_radius"]
 
         # shared epoch indices and classes (in case we want class balanced sampler)
         if self.task == "train":
-            N = int(np.ceil(config["train"]["epoch_steps"] * self.batch_num * 1.1))
+            epoch_size = int(np.ceil(config["train"]["epoch_steps"] * self.batch_num * 1.1))
         else:
-            N = int(np.ceil(config.validation_size * self.batch_num * 1.1))
+            epoch_size = int(np.ceil(config.validation_size * self.batch_num * 1.1))
         self.epoch_i = torch.from_numpy(np.zeros((1,), dtype=np.int64))
-        self.epoch_inds = torch.from_numpy(np.zeros((N,), dtype=np.int64))
-        self.epoch_labels = torch.from_numpy(np.zeros((N,), dtype=np.int32))
+        self.epoch_inds = torch.from_numpy(np.zeros((epoch_size,), dtype=np.int64))
+        self.epoch_labels = torch.from_numpy(np.zeros((epoch_size,), dtype=np.int32))
         self.epoch_i.share_memory_()
         self.epoch_inds.share_memory_()
         self.epoch_labels.share_memory_()
@@ -135,8 +137,6 @@ class SemanticKittiDataset(PointCloudDataset):
         self.worker_waiting.share_memory_()
         self.worker_lock = Lock()
 
-        return
-
     def __len__(self):
         """
         Return the length of data here
@@ -144,12 +144,12 @@ class SemanticKittiDataset(PointCloudDataset):
         return len(self.frames)
 
     def __getitem__(self, batch_i):
-        """The main thread gives a list of indices to load a batch. Each worker is going to work in
-        parallel to load a different list of indices.
-
+        """
+        The main thread gives a list of indices to load a batch.
+        Each worker is going to work in parallel to load a different list of indices.
         """
 
-        t = [time.time()]
+        timestamps = [time.time()]
 
         # Initiate concatanation lists
         p_list = []
@@ -158,7 +158,7 @@ class SemanticKittiDataset(PointCloudDataset):
         fi_list = []
         p0_list = []
         s_list = []
-        R_list = []
+        r_list = []
         r_inds_list = []
         r_mask_list = []
         val_labels_list = []
@@ -166,7 +166,7 @@ class SemanticKittiDataset(PointCloudDataset):
 
         while True:
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             with self.worker_lock:
 
@@ -181,12 +181,9 @@ class SemanticKittiDataset(PointCloudDataset):
 
             s_ind, f_ind = self.all_inds[ind]
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
-            #########################
             # Merge n_frames together
-            #########################
-
             # Initiate merged points
             merged_points = np.zeros((0, 3), dtype=np.float32)
             merged_labels = np.zeros((0,), dtype=np.int32)
@@ -201,7 +198,7 @@ class SemanticKittiDataset(PointCloudDataset):
             o_pts = None
             o_labels = None
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             num_merged = 0
             f_inc = 0
@@ -210,12 +207,12 @@ class SemanticKittiDataset(PointCloudDataset):
                 # Current frame pose
                 pose = self.poses[s_ind][f_ind - f_inc]
 
-                # Select frame only if center has moved far away (more than X meter).
+                # Select frame only if center has moved far away (more than "translate" meters).
                 # Negative value to ignore.
-                X = -1.0
-                if X > 0:
+                translate = -1.0
+                if translate > 0:
                     diff = p_origin.dot(pose.T)[:, :3] - p_origin.dot(pose0.T)[:, :3]
-                    if num_merged > 0 and np.linalg.norm(diff) < num_merged * X:
+                    if num_merged > 0 and np.linalg.norm(diff) < num_merged * translate:
                         f_inc += 1
                         continue
 
@@ -255,7 +252,7 @@ class SemanticKittiDataset(PointCloudDataset):
 
                 # In case radius smaller than 50m, chose new center on a point of the wanted class
                 # or not
-                if self.in_R < 50.0 and f_inc == 0:
+                if self.input_radius < 50.0 and f_inc == 0:
                     if self.balance_classes:
                         wanted_ind = np.random.choice(np.where(sem_labels == wanted_label)[0])
                     else:
@@ -263,7 +260,7 @@ class SemanticKittiDataset(PointCloudDataset):
                     p0 = new_points[wanted_ind, :3]
 
                 # Eliminate points further than config["input"]["sphere_radius"]
-                mask = np.sum(np.square(new_points[:, :3] - p0), axis=1) < self.in_R**2
+                mask = np.sum(np.square(new_points[:, :3] - p0), axis=1) < self.input_radius**2
                 mask_inds = np.where(mask)[0].astype(np.int32)
 
                 # Shuffle points
@@ -287,12 +284,9 @@ class SemanticKittiDataset(PointCloudDataset):
                 num_merged += 1
                 f_inc += 1
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
-            #########################
             # Merge n_frames together
-            #########################
-
             # Subsample merged frames
             in_pts, in_fts, in_lbls = grid_subsampling(
                 merged_points,
@@ -301,31 +295,31 @@ class SemanticKittiDataset(PointCloudDataset):
                 sampleDl=self.config["kpconv"]["first_subsampling_dl"],
             )
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Number collected
-            n = in_pts.shape[0]
+            collected_points = in_pts.shape[0]
 
             # Safe check
-            if n < 2:
+            if collected_points < 2:
                 continue
 
             # Randomly drop some points (augmentation process and safety for GPU memory consumption)
-            if n > self.max_in_p:
-                input_inds = np.random.choice(n, size=self.max_in_p, replace=False)
+            if collected_points > self.max_in_p:
+                input_inds = np.random.choice(collected_points, size=self.max_in_p, replace=False)
                 in_pts = in_pts[input_inds, :]
                 in_fts = in_fts[input_inds, :]
                 in_lbls = in_lbls[input_inds]
-                n = input_inds.shape[0]
+                collected_points = input_inds.shape[0]
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Before augmenting, compute reprojection inds (only for validation and test)
             if self.task in ["validate", "test"]:
 
                 # get val_points that are in range
                 radiuses = np.sum(np.square(o_pts - p0), axis=1)
-                reproj_mask = radiuses < (0.99 * self.in_R) ** 2
+                reproj_mask = radiuses < (0.99 * self.input_radius) ** 2
 
                 # Project predictions on the frame points
                 search_tree = KDTree(in_pts, leaf_size=50)
@@ -335,12 +329,12 @@ class SemanticKittiDataset(PointCloudDataset):
                 proj_inds = np.zeros((0,))
                 reproj_mask = np.zeros((0,))
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Data augmentation
-            in_pts, scale, R = self.augmentation_transform(in_pts)
+            in_pts, _, scale, rotation_matrix = self.augmentation_transform(in_pts)
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Color augmentation
             if np.random.rand() > self.config["train"]["augment_color"]:
@@ -353,24 +347,21 @@ class SemanticKittiDataset(PointCloudDataset):
             fi_list += [[s_ind, f_ind]]
             p0_list += [p0]
             s_list += [scale]
-            R_list += [R]
+            r_list += [rotation_matrix]
             r_inds_list += [proj_inds]
             r_mask_list += [reproj_mask]
             val_labels_list += [o_labels]
 
-            t += [time.time()]
+            timestamps += [time.time()]
 
             # Update batch size
-            batch_n += n
+            batch_n += collected_points
 
             # In case batch is full, stop
             if batch_n > int(self.batch_limit):
                 break
 
-        ###################
         # Concatenate batch
-        ###################
-
         stacked_points = np.concatenate(p_list, axis=0)
         features = np.concatenate(f_list, axis=0)
         labels = np.concatenate(l_list, axis=0)
@@ -378,7 +369,7 @@ class SemanticKittiDataset(PointCloudDataset):
         frame_centers = np.stack(p0_list, axis=0)
         stack_lengths = np.array([pp.shape[0] for pp in p_list], dtype=np.int32)
         scales = np.array(s_list, dtype=np.float32)
-        rots = np.stack(R_list, axis=0)
+        rots = np.stack(r_list, axis=0)
 
         # Input features (Use reflectance, input height or all coordinates)
         stacked_features = np.ones_like(stacked_points[:, :1], dtype=np.float32)
@@ -399,21 +390,16 @@ class SemanticKittiDataset(PointCloudDataset):
         else:
             raise ValueError("Only accepted input dimensions are 1, 4 and 7 (without and with XYZ)")
 
-        t += [time.time()]
+        timestamps += [time.time()]
 
-        #######################
         # Create network inputs
-        #######################
-        #
         #   Points, neighbors, pooling indices for each layers
-        #
-
         # Get the whole input list
         input_list = self.segmentation_inputs(
             stacked_points, stacked_features, labels.astype(np.int64), stack_lengths
         )
 
-        t += [time.time()]
+        timestamps += [time.time()]
 
         # Add scale and rotation for testing
         input_list += [
@@ -426,106 +412,118 @@ class SemanticKittiDataset(PointCloudDataset):
             val_labels_list,
         ]
 
-        t += [time.time()]
+        timestamps += [time.time()]
 
         # Display timings
-        debugT = False
-        if debugT:
+        debug_t = False
+        if debug_t:
             print("\n************************\n")
             print("Timings:")
-            ti = 0
-            N = 9
+            timestamp = 0
+            num = 9
             mess = "Init ...... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Lock ...... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Init ...... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Load ...... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Subs ...... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Drop ...... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Reproj .... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Augment ... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += 1
+            timestamp += 1
             mess = "Stack ..... {:5.1f}ms /"
             loop_times = [
-                1000 * (t[ti + N * i + 1] - t[ti + N * i]) for i in range(len(stack_lengths))
+                1000 * (timestamps[timestamp + num * idx + 1] - timestamps[timestamp + num * idx])
+                for idx in range(len(stack_lengths))
             ]
             for dt in loop_times:
                 mess += f" {dt:5.1f}"
             print(mess.format(np.sum(loop_times)))
-            ti += N * (len(stack_lengths) - 1) + 1
-            print(f"concat .... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
-            ti += 1
-            print(f"input ..... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
-            ti += 1
-            print(f"stack ..... {1000 * (t[ti+1] - t[ti]):5.1f}ms")
-            ti += 1
+            timestamp += num * (len(stack_lengths) - 1) + 1
+            print(
+                f"concat .... {1000 * (timestamps[timestamp + 1] - timestamps[timestamp]):5.1f}ms"
+            )
+            timestamp += 1
+            print(
+                f"input ..... {1000 * (timestamps[timestamp + 1] - timestamps[timestamp]):5.1f}ms"
+            )
+            timestamp += 1
+            print(
+                f"stack ..... {1000 * (timestamps[timestamp + 1] - timestamps[timestamp]):5.1f}ms"
+            )
+            timestamp += 1
             print("\n************************\n")
 
         return [self.config["model"]["num_layers"]] + input_list
 
     def load_calib_poses(self):
         """
-        load calib poses and times.
+        Load calib poses and times
         """
 
-        ###########
         # Load data
-        ###########
-
         self.calibrations = []
         self.times = []
         self.poses = []
@@ -546,20 +544,14 @@ class SemanticKittiDataset(PointCloudDataset):
             )
             self.poses.append([pose.astype(np.float32) for pose in poses_f64])
 
-        ###################################
         # Prepare the indices of all frames
-        ###################################
-
         seq_inds = np.hstack(
             [np.ones(len(_), dtype=np.int32) * i for i, _ in enumerate(self.frames)]
         )
         frame_inds = np.hstack([np.arange(len(_), dtype=np.int32) for _ in self.frames])
         self.all_inds = np.vstack((seq_inds, frame_inds)).T
 
-        ################################################
         # For each class list the frames containing them
-        ################################################
-
         if self.task in ["train", "validate"]:
 
             class_frames_bool = np.zeros((0, self.num_classes), dtype=np.bool)
@@ -645,66 +637,60 @@ class SemanticKittiDataset(PointCloudDataset):
                     np.zeros((len(seq_frames), self.num_classes, self.num_classes))
                 )
 
-        return
-
     def parse_calibration(self, filename):
-        """read calibration file with given filename
+        """
+        Read calibration file with given filename
 
-        Returns
-        -------
-        dict
-            Calibration matrices as 4x4 numpy arrays.
+        :returns: calibration matrices as 4x4 numpy arrays
         """
         calib = {}
 
-        calib_file = open(filename)
-        for line in calib_file:
-            key, content = line.strip().split(":")
-            values = [float(v) for v in content.strip().split()]
+        with open(filename, encoding="utf-8") as calib_file:
+            for line in calib_file:
+                key, content = line.strip().split(":")
+                values = [float(v) for v in content.strip().split()]
 
-            pose = np.zeros((4, 4))
-            pose[0, 0:4] = values[0:4]
-            pose[1, 0:4] = values[4:8]
-            pose[2, 0:4] = values[8:12]
-            pose[3, 3] = 1.0
+                pose = np.zeros((4, 4))
+                pose[0, 0:4] = values[0:4]
+                pose[1, 0:4] = values[4:8]
+                pose[2, 0:4] = values[8:12]
+                pose[3, 3] = 1.0
 
-            calib[key] = pose
-
-        calib_file.close()
+                calib[key] = pose
 
         return calib
 
     def parse_poses(self, filename, calibration):
-        """read poses file with per-scan poses from given filename
-
-        Returns
-        -------
-        list
-            list of poses as 4x4 numpy arrays.
         """
-        file = open(filename)
+        Read poses file with per-scan poses from given filename
 
-        poses = []
+        :returns: list of poses
+        :rtype: 4x4 numpy arrays.
+        """
+        with open(filename, encoding="utf-8") as file:
+            poses = []
 
-        Tr = calibration["Tr"]
-        Tr_inv = np.linalg.inv(Tr)
+            tr = calibration["Tr"]
+            tr_inv = np.linalg.inv(tr)
 
-        for line in file:
-            values = [float(v) for v in line.strip().split()]
+            for line in file:
+                values = [float(v) for v in line.strip().split()]
 
-            pose = np.zeros((4, 4))
-            pose[0, 0:4] = values[0:4]
-            pose[1, 0:4] = values[4:8]
-            pose[2, 0:4] = values[8:12]
-            pose[3, 3] = 1.0
+                pose = np.zeros((4, 4))
+                pose[0, 0:4] = values[0:4]
+                pose[1, 0:4] = values[4:8]
+                pose[2, 0:4] = values[8:12]
+                pose[3, 3] = 1.0
 
-            poses.append(np.matmul(Tr_inv, np.matmul(pose, Tr)))
+                poses.append(np.matmul(tr_inv, np.matmul(pose, tr)))
 
         return poses
 
 
 class SemanticKittiSampler(Sampler):
-    """Sampler for SemanticKitti"""
+    """
+    Sampler for SemanticKitti
+    """
 
     def __init__(self, dataset: SemanticKittiDataset):
         Sampler.__init__(self, dataset)
@@ -716,16 +702,14 @@ class SemanticKittiSampler(Sampler):
 
         # Number of step per epoch
         if dataset.task == "train":
-            self.N = dataset.config.epoch_steps
+            self.n_ = dataset.config.epoch_steps
         else:
-            self.N = dataset.config.validation_size
-
-        return
+            self.n_ = dataset.config.validation_size
 
     def __iter__(self):
-        """Yield next batch indices here. In this dataset, this is a dummy sampler that yield the
+        """
+        Yield next batch indices here. In this dataset, this is a dummy sampler that yield the
         index of batch element (input sphere) in epoch instead of the list of point indices.
-
         """
 
         if self.dataset.balance_classes:
@@ -837,16 +821,17 @@ class SemanticKittiSampler(Sampler):
             self.dataset.epoch_inds += gen_indices
 
         # Generator loop
-        yield from range(self.N)
+        yield from range(self.n_)
 
     def __len__(self):
         """
         The number of yielded samples is variable
         """
-        return self.N
+        return self.n_
 
-    def calib_max_in(self, config, dataloader, untouched_ratio=0.8, verbose=True, force_redo=False):
-        """Method performing batch and neighbors calibration.
+    def calib_max_in(self, dataloader, untouched_ratio=0.8, verbose=True, force_redo=False):
+        """
+        Method performing batch and neighbors calibration.
 
         Batch calibration: Set "batch_limit" (the maximum number of points allowed in every batch)
         so that the average batch size (number of stacked pointclouds) is the one asked.
@@ -857,18 +842,13 @@ class SemanticKittiSampler(Sampler):
 
         """
 
-        ##############################
         # Previously saved calibration
-        ##############################
-
         print("\nStarting Calibration of max_in_points value (use verbose=True for more details)")
         t0 = time.time()
 
         redo = force_redo
 
         # Batch limit
-        # ***********
-
         # Load max_in_limit dictionary
         max_in_lim_file = os.path.join(self.calibration_path, "max_in_limits.pkl")
         if os.path.exists(max_in_lim_file):
@@ -884,7 +864,7 @@ class SemanticKittiSampler(Sampler):
             sampler_method = "random"
 
         t = self.dataset.config["kpconv"]["first_subsampling_dl"]
-        key = f"{sampler_method}_{self.dataset.in_R:3f}_{t:3f}"
+        key = f"{sampler_method}_{self.dataset.input_radius:3f}_{t:3f}"
         if not redo and key in max_in_lim_dict:
             self.dataset.max_in_p = max_in_lim_dict[key]
         else:
@@ -902,23 +882,16 @@ class SemanticKittiSampler(Sampler):
             print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         if redo:
-
-            ########################
             # Batch calib parameters
-            ########################
-
             # Loop parameters
             last_display = time.time()
             i = 0
             breaking = False
 
             all_lengths = []
-            N = 1000
+            n_ = 1000
 
-            #####################
             # Perform calibration
-            #####################
-
             for _ in range(10):
                 for batch in dataloader:
 
@@ -926,7 +899,7 @@ class SemanticKittiSampler(Sampler):
                     all_lengths += batch.lengths[0].tolist()
 
                     # Convergence
-                    if len(all_lengths) > N:
+                    if len(all_lengths) > n_:
                         breaking = True
                         break
 
@@ -937,7 +910,7 @@ class SemanticKittiSampler(Sampler):
                     if t - last_display > 1.0:
                         last_display = t
                         message = "Collecting {:d} in_points: {:5.1f}%"
-                        print(message.format(N, 100 * len(all_lengths) / N))
+                        print(message.format(n_, 100 * len(all_lengths) / n_))
 
                 if breaking:
                     break
@@ -957,15 +930,15 @@ class SemanticKittiSampler(Sampler):
 
         # Update value in config
         if self.dataset.task == "train":
-            config.max_in_points = self.dataset.max_in_p
+            self.dataset.config.max_in_points = self.dataset.max_in_p
         else:
-            config.max_val_points = self.dataset.max_in_p
+            self.dataset.config.max_val_points = self.dataset.max_in_p
 
         print(f"Calibration done in {time.time() - t0:.1f}s\n")
-        return
 
     def calibration(self, dataloader, untouched_ratio=0.9, verbose=False, force_redo=False):
-        """Method performing batch and neighbors calibration.
+        """
+        Method performing batch and neighbors calibration.
 
         Batch calibration: Set "batch_limit" (the maximum number of points allowed in every batch)
         so that the average batch size (number of stacked pointclouds) is the one asked.
@@ -975,19 +948,13 @@ class SemanticKittiSampler(Sampler):
         limit for each layer.
 
         """
-
-        ##############################
         # Previously saved calibration
-        ##############################
-
         print("\nStarting Calibration (use verbose=True for more details)")
         t0 = time.time()
 
         redo = force_redo
 
         # Batch limit
-        # ***********
-
         # Load batch_limit dictionary
         batch_lim_file = os.path.join(self.calibration_path, "batch_limits.pkl")
         if os.path.exists(batch_lim_file):
@@ -1005,7 +972,7 @@ class SemanticKittiSampler(Sampler):
         t = self.dataset.config["kpconv"]["first_subsampling_dl"]
 
         key = (
-            f"{sampler_method}_{self.dataset.in_R:3f}_"
+            f"{sampler_method}_{self.dataset.input_radius:3f}_"
             f"{t:f}_"
             f"{self.dataset.batch_num:d}_{self.dataset.max_in_p:d}"
         )
@@ -1026,8 +993,6 @@ class SemanticKittiSampler(Sampler):
             print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         # Neighbors limit
-        # ***************
-
         # Load neighb_limits dictionary
         neighb_lim_file = os.path.join(self.calibration_path, "neighbors_limits.pkl")
         if os.path.exists(neighb_lim_file):
@@ -1074,30 +1039,23 @@ class SemanticKittiSampler(Sampler):
                 print(f'{color}"{key}": {v}{BColors.ENDC}')
 
         if redo:
-
-            ############################
             # Neighbors calib parameters
-            ############################
-
             # From config parameter, compute higher bound of neighbors number in a neighborhood
             hist_n = int(
-                np.ceil(4 / 3 * np.pi * (self.dataset.config["kpconv"]["deform_radius"] + 1) ** 3)
+                np.ceil(4 / 3 * np.pi * (self.dataset.config["train"]["batch_num"] + 1) ** 3)
             )
 
             # Histogram of neighborhood sizes
             neighb_hists = np.zeros((self.dataset.num_layers, hist_n), dtype=np.int32)
 
-            ########################
             # Batch calib parameters
-            ########################
-
             # Estimated average batch size and target value
             estim_b = 0
             target_b = self.dataset.batch_num
 
             # Calibration parameters
-            low_pass_T = 10
-            Kp = 100.0
+            low_pass_t = 10
+            kp = 100.0
             finer = False
 
             # Convergence parameters
@@ -1113,10 +1071,7 @@ class SemanticKittiSampler(Sampler):
             i = 0
             breaking = False
 
-            #####################
             # Perform calibration
-            #####################
-
             for _ in range(10):
                 for batch in dataloader:
 
@@ -1137,7 +1092,7 @@ class SemanticKittiSampler(Sampler):
                     b = len(batch.frame_inds)
 
                     # Update estim_b (low pass filter)
-                    estim_b += (b - estim_b) / low_pass_T
+                    estim_b += (b - estim_b) / low_pass_t
 
                     # Estimate error (noisy)
                     error = target_b - b
@@ -1148,11 +1103,11 @@ class SemanticKittiSampler(Sampler):
                         smooth_errors = smooth_errors[1:]
 
                     # Update batch limit with P controller
-                    self.dataset.batch_limit[0] += Kp * error
+                    self.dataset.batch_limit[0] += kp * error
 
                     # finer low pass filter when closing in
                     if not finer and np.abs(estim_b - target_b) < 1:
-                        low_pass_T = 100
+                        low_pass_t = 100
                         finer = True
 
                     # Convergence
@@ -1187,7 +1142,7 @@ class SemanticKittiSampler(Sampler):
                 print("\n**************************************************\n")
                 line0 = "neighbors_num "
                 for layer in range(neighb_hists.shape[0]):
-                    line0 += f"|  layer {layer:2d}  "
+                    line0 = line0.join(f"|  layer {layer:2d}  ")
                 print(line0)
                 for neighb_size in range(hist_n):
                     line0 = f"     {neighb_size:4d}     "
@@ -1220,10 +1175,10 @@ class SemanticKittiSampler(Sampler):
             print("\n**************************************************\n")
 
             # Save batch_limit dictionary
-            t1 = self.config["kpconv"]["first_subsampling_dl"]
-            t2 = self.config["train"]["batch_num"]
+            t1 = self.dataset.config["kpconv"]["first_subsampling_dl"]
+            t2 = self.dataset.config["train"]["batch_num"]
             key = (
-                f"{sampler_method}_{self.dataset.in_R:3f}_"
+                f"{sampler_method}_{self.dataset.input_radius:3f}_"
                 f"{t1:3f}_"
                 f"{t2:d}_{self.dataset.max_in_p:d}"
             )
@@ -1244,11 +1199,12 @@ class SemanticKittiSampler(Sampler):
                 pickle.dump(neighb_lim_dict, file)
 
         print(f"Calibration done in {time.time() - t0:.1f}s\n")
-        return
 
 
 class SemanticKittiCustomBatch:
-    """Custom batch definition with memory pinning for SemanticKitti"""
+    """
+    Custom batch definition with memory pinning for SemanticKitti
+    """
 
     def __init__(self, input_list):
 
@@ -1256,20 +1212,20 @@ class SemanticKittiCustomBatch:
         input_list = input_list[0]
 
         # Number of layers
-        L = int(input_list[0])
+        l_ = int(input_list[0])
 
         # Extract input tensors from the list of numpy array
         ind = 1
-        self.points = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.neighbors = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.pools = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.upsamples = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
-        self.lengths = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + L]]
-        ind += L
+        self.points = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + l_]]
+        ind += l_
+        self.neighbors = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + l_]]
+        ind += l_
+        self.pools = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + l_]]
+        ind += l_
+        self.upsamples = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + l_]]
+        ind += l_
+        self.lengths = [torch.from_numpy(nparray) for nparray in input_list[ind : ind + l_]]
+        ind += l_
         self.features = torch.from_numpy(input_list[ind])
         ind += 1
         self.labels = torch.from_numpy(input_list[ind])
@@ -1287,8 +1243,6 @@ class SemanticKittiCustomBatch:
         self.reproj_masks = input_list[ind]
         ind += 1
         self.val_labels = input_list[ind]
-
-        return
 
     def pin_memory(self):
         """
@@ -1310,6 +1264,9 @@ class SemanticKittiCustomBatch:
         return self
 
     def to(self, device):
+        """
+        :param device:
+        """
 
         self.points = [in_tensor.to(device) for in_tensor in self.points]
         self.neighbors = [in_tensor.to(device) for in_tensor in self.neighbors]
@@ -1326,22 +1283,31 @@ class SemanticKittiCustomBatch:
         return self
 
     def unstack_points(self, layer=None):
-        """Unstack the points"""
+        """
+        Unstack the points
+        """
+
         return self.unstack_elements("points", layer)
 
     def unstack_neighbors(self, layer=None):
-        """Unstack the neighbors indices"""
+        """
+        Unstack the neighbors indices
+        """
+
         return self.unstack_elements("neighbors", layer)
 
     def unstack_pools(self, layer=None):
-        """Unstack the pooling indices"""
+        """
+        Unstack the pooling indices
+        """
+
         return self.unstack_elements("pools", layer)
 
     def unstack_elements(self, element_name, layer=None, to_numpy=True):
-        """Return a list of the stacked elements in the batch at a certain layer.
+        """
+        Return a list of the stacked elements in the batch at a certain layer.
 
         If no layer is given, then return all layers.
-
         """
 
         if element_name == "points":
@@ -1389,18 +1355,20 @@ class SemanticKittiCustomBatch:
         return all_p_list
 
 
-def SemanticKittiCollate(batch_data):
+def semantickitti_collate(batch_data):
     return SemanticKittiCustomBatch(batch_data)
 
 
 def debug_timing(dataset, loader):
-    """Timing of generator function"""
+    """
+    Timing of generator function
+    """
 
     t = [time.time()]
     last_display = time.time()
     mean_dt = np.zeros(2)
     estim_b = dataset.batch_num
-    estim_N = 0
+    estim_n = 0
 
     for _ in range(10):
 
@@ -1412,7 +1380,7 @@ def debug_timing(dataset, loader):
 
             # Update estim_b (low pass filter)
             estim_b += (len(batch.frame_inds) - estim_b) / 100
-            estim_N += (batch.features.shape[0] - estim_N) / 10
+            estim_n += (batch.features.shape[0] - estim_n) / 10
 
             # Pause simulating computations
             time.sleep(0.05)
@@ -1426,7 +1394,7 @@ def debug_timing(dataset, loader):
                 last_display = t[-1]
                 message = "Step {:08d} -> (ms/batch) {:8.2f} {:8.2f} / batch = {:.2f} - {:.0f}"
                 print(
-                    message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b, estim_N)
+                    message.format(batch_i, 1000 * mean_dt[0], 1000 * mean_dt[1], estim_b, estim_n)
                 )
 
         print("************* Epoch ended *************")
@@ -1436,13 +1404,15 @@ def debug_timing(dataset, loader):
 
 
 def debug_class_w(dataset, loader):
-    """Timing of generator function"""
+    """
+    Timing of generator function
+    """
 
     i = 0
 
     counts = np.zeros((dataset.num_classes,), dtype=np.int64)
 
-    s = "{:^6}|".format("step")
+    s = "step"
     for c in dataset.label_names:
         s += f"{c[:4]:^6}"
     print(s)
