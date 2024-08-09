@@ -1,3 +1,10 @@
+"""
+ModelVisualizer class
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
 import os
 import time
 
@@ -21,10 +28,7 @@ class ModelVisualizer:
         :param on_gpu: Train on GPU or CPU
         """
 
-        ############
         # Parameters
-        ############
-
         self.config = config
 
         # Choose to train on CPU or GPU
@@ -34,10 +38,7 @@ class ModelVisualizer:
             self.device = torch.device("cpu")
         net.to(self.device)
 
-        ##########################
         # Load previous checkpoint
-        ##########################
-
         checkpoint = torch.load(chkp_path)
 
         new_dict = {}
@@ -51,20 +52,13 @@ class ModelVisualizer:
         net.eval()
         print(f"\nModel state restored from {chkp_path}.")
 
-        return
-
     # Main visualization methods
-    # ------------------------------------------------------------------------------------------------------------------
-
     def show_deformable_kernels(self, net, loader, deform_idx=0):
         """
         Show some inference with deformable kernels
         """
 
-        ##########################################
         # First choose the visualized deformations
-        ##########################################
-
         print("\nList of the deformable convolution available (chosen one highlighted in green)")
         fmt_str = "  {:}{:2d} > KPConv(r={:.3f}, Din={:d}, Dout={:d}){:}"
         deform_convs = []
@@ -86,10 +80,7 @@ class ModelVisualizer:
                 )
                 deform_convs.append(m)
 
-        ################
         # Initialization
-        ################
-
         print("\n****************************************************\n")
 
         # Loop variables
@@ -104,10 +95,7 @@ class ModelVisualizer:
 
             for batch in loader:
 
-                ##################
                 # Processing batch
-                ##################
-
                 # New time
                 t = t[-1:]
                 t += [time.time()]
@@ -156,10 +144,7 @@ class ModelVisualizer:
                     lookuptrees.append(KDTree(points[-1]))
                     i0 += length
 
-                ###########################
                 # Interactive visualization
-                ###########################
-
                 # Create figure for features
                 fig1 = mlab.figure("Deformations", bgcolor=(1.0, 1.0, 1.0), size=(1280, 920))
                 fig1.scene.parallel_projection = False
@@ -336,8 +321,6 @@ class ModelVisualizer:
                     mlab.view(*v)
                     mlab.roll(roll)
 
-                    return
-
                 def animate_kernel():
                     global plots, offsets, p_scale, show_in_p
 
@@ -367,8 +350,6 @@ class ModelVisualizer:
                             yield
 
                     anim()
-
-                    return
 
                 def keyboard_callback(vtk_obj, event):
                     global obj_i, point_i, offsets, p_scale, show_in_p
@@ -432,8 +413,6 @@ class ModelVisualizer:
                         )
                         print("OK")
 
-                    return
-
                 # Draw a first plot
                 pick_func = fig1.on_mouse_pick(picker_callback)
                 pick_func.tolerance = 0.01
@@ -441,18 +420,12 @@ class ModelVisualizer:
                 fig1.scene.interactor.add_observer("KeyPressEvent", keyboard_callback)
                 mlab.show()
 
-        return
 
-    # Utilities
-    # ------------------------------------------------------------------------------------------------------------------
-
-
-def show_ModelNet_models(all_points):
-
-    ###########################
+def show_modelnet_models(all_points):
+    """
+    :param all_points:
+    """
     # Interactive visualization
-    ###########################
-
     # Create figure for features
     fig1 = mlab.figure("Models", bgcolor=(1, 1, 1), size=(1000, 800))
     fig1.scene.parallel_projection = False
@@ -489,8 +462,6 @@ def show_ModelNet_models(all_points):
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
         mlab.orientation_axes()
 
-        return
-
     def keyboard_callback(vtk_obj, event):
         global file_i
 
@@ -503,8 +474,6 @@ def show_ModelNet_models(all_points):
 
             file_i = (file_i + 1) % len(all_points)
             update_scene()
-
-        return
 
     # Draw a first plot
     update_scene()

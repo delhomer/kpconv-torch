@@ -1,3 +1,10 @@
+"""
+ModelTester class
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
 import os
 from pathlib import Path
 import time
@@ -26,6 +33,7 @@ class ModelTester:
     def __init__(self, net, config, chkp_path=None, test_path=None, on_gpu=True):
         """
         Initialize training parameters and reload previous model for restore/finetune
+
         :param net: network object
         :param config: configuration object
         :param chkp_path: path to the checkpoint that needs to be loaded
@@ -41,9 +49,7 @@ class ModelTester:
             self.device = torch.device("cpu")
         net.to(self.device)
 
-        ##########################
         # Load previous checkpoint
-        ##########################
         checkpoint = torch.load(chkp_path, map_location=self.device)
         net.load_state_dict(checkpoint["model_state_dict"])
         self.epoch = checkpoint["epoch"]
@@ -51,14 +57,13 @@ class ModelTester:
         print("Model and training state restored.")
         self.test_path = test_path
 
-        return
-
     def classification_test(self, net, test_loader):
+        """
 
-        ############
+        :param net
+        :param test_loader
+        """
         # Initialize
-        ############
-
         # Choose test smoothing parameter (0 for no smothing, 0.99 for big smoothing)
         softmax = torch.nn.Softmax(1)
 
@@ -75,8 +80,6 @@ class ModelTester:
         while np.min(self.test_counts) < self.config["test"]["n_votes"]:
 
             # Run model on all test examples
-            # ******************************
-
             # Initiate result containers
             probs = []
             targets = []
@@ -134,8 +137,6 @@ class ModelTester:
             )
 
             # Save/Display temporary results
-            # ******************************
-
             test_labels = np.array(test_loader.dataset.label_values)
 
             # Compute classification results
@@ -148,17 +149,15 @@ class ModelTester:
             ACC = 100 * np.sum(np.diag(C1)) / (np.sum(C1) + 1e-6)
             print(f"Test Accuracy = {ACC:.1f}%")
 
-        return
-
     def cloud_segmentation_test(self, net, test_loader):
         """
         Test method for cloud segmentation models
+
+        :param net
+        :param test_loader
         """
 
-        ############
         # Initialize
-        ############
-
         # Choose test smoothing parameter (0 for no smothing, 0.99 for big smoothing)
         test_smooth = 0.95
         test_radius_ratio = 0.7
@@ -200,10 +199,7 @@ class ModelTester:
         else:
             val_proportions = None
 
-        #####################
         # Network predictions
-        #####################
-
         test_epoch = 0
         last_saved_min = last_min = -0.5
 
@@ -241,8 +237,6 @@ class ModelTester:
                     torch.cuda.synchronize(self.device)
 
                 # Get predictions and labels per instance
-                # ***************************************
-
                 i0 = 0
                 for b_i, length in enumerate(lengths):
 
@@ -489,8 +483,6 @@ class ModelTester:
                 break
             print("---")
 
-        return
-
     def write_cloud_segmentation_outputs(
         self, cloud_name, output_gen, label_names, nb_points, ascii_filename
     ):
@@ -542,6 +534,10 @@ class ModelTester:
     def slam_segmentation_test(self, net, test_loader, debug=True):
         """
         Test method for slam segmentation models
+
+        :param net:
+        :param test_loader:
+        :param debug:
         """
 
         ############
@@ -583,10 +579,7 @@ class ModelTester:
                 all_f_preds.append([np.zeros((0,), dtype=np.int32) for _ in seq_frames])
                 all_f_labels.append([np.zeros((0,), dtype=np.int32) for _ in seq_frames])
 
-        #####################
         # Network predictions
-        #####################
-
         predictions = []
         targets = []
         test_epoch = 0
@@ -626,8 +619,6 @@ class ModelTester:
                 t += [time.time()]
 
                 # Get predictions and labels per instance
-                # ***************************************
-
                 i0 = 0
                 for b_i, length in enumerate(lengths):
 
@@ -832,10 +823,7 @@ class ModelTester:
 
                 if test_loader.dataset.task == "validate" and last_min % 1 == 0:
 
-                    #####################################
                     # Results on the whole validation set
-                    #####################################
-
                     # Confusions for our subparts of validation set
                     Confs = np.zeros((len(predictions), nc_tot, nc_tot), dtype=np.int32)
                     for i, (preds, truth) in enumerate(zip(predictions, targets)):
@@ -907,5 +895,3 @@ class ModelTester:
             # Break when reaching number of desired votes
             if last_min > self.config["test"]["n_votes"]:
                 break
-
-        return
