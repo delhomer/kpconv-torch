@@ -1,36 +1,46 @@
+"""
+Models testing functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
 from pathlib import Path
 import os
 import time
 
-from kpconv_torch.utils.config import load_config
 import numpy as np
 from torch.utils.data import DataLoader
 
-from kpconv_torch.datasets.ModelNet40 import (
-    ModelNet40Collate,
+from kpconv_torch.datasets.modelnet40 import (
+    modelnet40_collate,
     ModelNet40Dataset,
     ModelNet40Sampler,
 )
-from kpconv_torch.datasets.S3DIS import (
-    S3DISCollate,
+from kpconv_torch.datasets.s3dis import (
+    s3dis_collate,
     S3DISDataset,
     S3DISSampler,
 )
-from kpconv_torch.datasets.SemanticKitti import (
-    SemanticKittiCollate,
+from kpconv_torch.datasets.semantickitti import (
+    semantickitti_collate,
     SemanticKittiDataset,
     SemanticKittiSampler,
 )
-from kpconv_torch.datasets.Toronto3D import (
-    Toronto3DCollate,
+from kpconv_torch.datasets.toronto3d import (
+    toronto_3d_collate,
     Toronto3DDataset,
     Toronto3DSampler,
 )
 from kpconv_torch.models.architectures import KPCNN, KPFCNN
+from kpconv_torch.utils.config import load_config
 from kpconv_torch.utils.tester import ModelTester, get_test_save_path
 
 
 def main(args):
+    """
+    Launch the testing from the CLI arguments
+    """
     test(
         args.datapath,
         args.configfile,
@@ -45,12 +55,16 @@ def test(
     filename: str,
     chosen_log: Path,
 ) -> None:
+    """
+    Model testing
+    :param datapath: path to the data folder
+    :param configfile: path to the config file
+    :param filename: path to the file to use to apply the inference
+    :param chosen_log: path to an already trained model which will be used to infer values
+    """
 
     # Choose the index of the checkpoint to load OR None if you want to load the current checkpoint
     chkp_idx = -1
-
-    # Choose to test on validation or test task
-    on_val = True
 
     # Deal with 'last_XXXXXX' choices
     output_path = get_test_save_path(filename, chosen_log)
@@ -65,18 +79,14 @@ def test(
         config["test"]["validation_size"] = 200
     config["input"]["threads"] = 10
 
-    ############################
     # Initialize the environment
-    ############################
     # Set which gpu is going to be used
-    GPU_ID = "0"
+    gpu_id = "0"
 
     # Set GPU visible device
-    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
+    os.environ["cuda_visible_devices"] = gpu_id
 
-    ###############
     # Previous chkp
-    ###############
     # Find all checkpoints in the chosen training folder
     chkp_path = os.path.join(chosen_log, "checkpoints")
     chkps = [f for f in os.listdir(chkp_path) if f[:4] == "chkp"]
@@ -88,26 +98,25 @@ def test(
         chosen_chkp = np.sort(chkps)[chkp_idx]
     chosen_chkp = os.path.join(chosen_log, "checkpoints", chosen_chkp)
 
-    ##############
     # Prepare Data
-    ##############
     print()
     print("Data Preparation")
     print("****************")
 
-    task = "validate" if on_val else "test"
+    task = "validate" if filename is None else "test"
 
     # Initiate dataset
     if config["dataset"] == "ModelNet40":
+
         test_dataset = ModelNet40Dataset(
             config=config,
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=filename,
-            train=False,
+            task=task,
         )
         test_sampler = ModelNet40Sampler(test_dataset)
-        collate_fn = ModelNet40Collate
+        collate_fn = modelnet40_collate
 
     elif config["dataset"] == "S3DIS":
 
@@ -116,10 +125,10 @@ def test(
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=filename,
-            task="validate" if filename is None else "test",
+            task=task,
         )
         test_sampler = S3DISSampler(test_dataset)
-        collate_fn = S3DISCollate
+        collate_fn = s3dis_collate
 
     elif config["dataset"] == "Toronto3D":
 
@@ -128,10 +137,10 @@ def test(
             datapath=datapath,
             chosen_log=chosen_log,
             infered_file=filename,
-            task="test",
+            task=task,
         )
         test_sampler = Toronto3DSampler(test_dataset)
-        collate_fn = Toronto3DCollate
+        collate_fn = toronto_3d_collate
 
     elif config["dataset"] == "SemanticKitti":
 
@@ -144,7 +153,8 @@ def test(
             balance_classes=False,
         )
         test_sampler = SemanticKittiSampler(test_dataset)
-        collate_fn = SemanticKittiCollate
+        collate_fn = semantickitti_collate
+
     else:
         raise ValueError("Unsupported dataset : " + config["dataset"])
 
@@ -159,7 +169,7 @@ def test(
     )
 
     # Calibrate samplers, one for each dataset
-    test_sampler.calibration(test_loader, verbose=True)
+    test_sampler.calibration(config, test_loader, verbose=True)
 
     print("\nModel Preparation")
     print("*****************")

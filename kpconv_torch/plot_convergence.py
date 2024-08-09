@@ -1,19 +1,26 @@
+"""
+Plot functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
 import contextlib
 import os
 from pathlib import Path
 
-from kpconv_torch.utils.config import load_config
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from kpconv_torch.datasets.S3DIS import S3DISDataset
+from kpconv_torch.datasets.s3dis import S3DISDataset
+from kpconv_torch.io.ply import read_ply
+from kpconv_torch.utils.config import load_config
 from kpconv_torch.utils.metrics import (
     fast_confusion,
     IoU_from_confusions,
     smooth_metrics,
 )
-from kpconv_torch.io.ply import read_ply
 
 
 def listdir_str(path):
@@ -170,7 +177,6 @@ def load_snap_clouds(path, dataset, only_last=False):
 
 def compare_trainings(list_of_paths, list_of_labels=None):
     # Parameters
-    # **********
     plot_lr = False
     smooth_epochs = 0.5
     stride = 2
@@ -179,7 +185,6 @@ def compare_trainings(list_of_paths, list_of_labels=None):
         list_of_labels = [str(i) for i in range(len(list_of_paths))]
 
     # Read Training Logs
-    # ******************
     all_epochs = []
     all_loss = []
     all_lr = []
@@ -224,7 +229,6 @@ def compare_trainings(list_of_paths, list_of_labels=None):
             all_lr += [lr[np.floor(all_epochs[-1]).astype(np.int32)]]
 
     # Plots learning rate
-    # *******************
     if plot_lr:
         # Figure
         fig = plt.figure("lr")
@@ -244,7 +248,6 @@ def compare_trainings(list_of_paths, list_of_labels=None):
         ax.grid(linestyle="-.", which="both")
 
     # Plots loss
-    # **********
     # Figure
     fig = plt.figure("loss")
     for i, label in enumerate(list_of_labels):
@@ -264,7 +267,6 @@ def compare_trainings(list_of_paths, list_of_labels=None):
     ax.grid(linestyle="-.", which="both")
 
     # Plot Times
-    # **********
 
     # Figure
     fig = plt.figure("time")
@@ -288,14 +290,12 @@ def compare_trainings(list_of_paths, list_of_labels=None):
 
 def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
     # Parameters
-    # **********
     smooth_n = 10
 
     if list_of_names is None:
         list_of_names = [str(i) for i in range(len(list_of_paths))]
 
     # Read Logs
-    # *********
     all_pred_epochs = []
     all_mIoUs = []
     all_class_IoUs = []
@@ -350,7 +350,6 @@ def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
         print(s)
 
     # Plots
-    # *****
     # Figure
     fig = plt.figure("mIoUs")
     for i, name in enumerate(list_of_names):
@@ -401,14 +400,12 @@ def compare_convergences_segment(dataset, list_of_paths, list_of_names=None):
 
 def compare_convergences_classif(list_of_paths, list_of_labels=None):
     # Parameters
-    # **********
     smooth_n = 12
 
     if list_of_labels is None:
         list_of_labels = [str(i) for i in range(len(list_of_paths))]
 
     # Read Logs
-    # *********
     all_pred_epochs = []
     all_val_OA = []
     all_vote_OA = []
@@ -448,7 +445,6 @@ def compare_convergences_classif(list_of_paths, list_of_labels=None):
     print()
 
     # Best scores
-    # ***********
     for i, label in enumerate(list_of_labels):
 
         print("\n" + label + "\n" + "*" * len(label) + "\n")
@@ -480,7 +476,6 @@ def compare_convergences_classif(list_of_paths, list_of_labels=None):
         print(f"Corresponding mAcc : {100 * class_avg_ACC[best_epoch]:.1f} %")
 
     # Plots
-    # *****
     for fig_name, OA in zip(["Validation", "Vote"], [all_val_OA, all_vote_OA]):
 
         # Figure
@@ -577,15 +572,11 @@ def main(args):
 
 
 def plot(datapath: Path) -> None:
-    ######################################################
     # Choose a list of log to plot together for comparison
-    ######################################################
     # My logs: choose the logs to show
     logs, logs_names = experiment_name_1()
 
-    ################
     # Plot functions
-    ################
     # Check that all logs are of the same dataset. Different object can be compared
     plot_dataset = None
     config = None
