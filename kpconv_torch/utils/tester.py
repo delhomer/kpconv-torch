@@ -5,6 +5,7 @@ import time
 import numpy as np
 import torch
 
+from kpconv_torch.utils import colors
 from kpconv_torch.utils.metrics import fast_confusion, IoU_from_confusions
 from kpconv_torch.io.ply import write_ply
 from kpconv_torch.io import ply
@@ -389,7 +390,11 @@ class ModelTester:
                                     np.argmax(probs, axis=1)
                                 ].astype(np.int8)
                                 self.preds_on_all_files += [preds]
-                                yield point_batch, preds, probs
+                                # Deduce the corresponding RGB triplets
+                                color_palette = colors.convert_hex_to_rgb(
+                                    test_loader.dataset.config["colors"]
+                                )
+                                yield point_batch, preds, color_palette[preds], probs
 
                         output_gen = load_output_generators(
                             file_idx,
@@ -497,24 +502,36 @@ class ModelTester:
         pred_filename = os.path.join(self.test_path, "predictions", cloud_name)
         if not pred_filename.endswith(".ply"):
             pred_filename += ".ply"
+        colorpred_filename = os.path.join(self.test_path, "predictions", "colorized_" + cloud_name)
+        if not colorpred_filename.endswith(".ply"):
+            colorpred_filename += ".ply"
         prob_filename = os.path.join(self.test_path, "probs", cloud_name)
         if not prob_filename.endswith(".ply"):
             prob_filename += ".ply"
         # First iteration so as to design the header
-        points, preds, probs = next(output_gen)
+        points, preds, color_preds, probs = next(output_gen)
         pred_field_list = [points, preds]
         pred_field_names = ["x", "y", "z", "preds"]
+        color_pred_field_list = [points, color_preds]
+        color_pred_field_names = ["x", "y", "z", "red", "green", "blue"]
         prob_field_list = [points, probs]
         prob_field_names = ["x", "y", "z"] + label_names
         if not ply.check_ply_fields(pred_field_list, pred_field_names):
+            print("Invalid field list for predictions. Cancel saving.")
+            return
+        if not ply.check_ply_fields(color_pred_field_list, color_pred_field_names):
             print("Invalid field list for predictions. Cancel saving.")
             return
         if not ply.check_ply_fields(prob_field_list, prob_field_names):
             print("Invalid field list for predictions. Cancel saving.")
             return
         ply.write_ply_header(pred_filename, pred_field_list, pred_field_names, nb_points=nb_points)
+        ply.write_ply_header(
+            colorpred_filename, color_pred_field_list, color_pred_field_names, nb_points=nb_points
+        )
         ply.write_ply_header(prob_filename, prob_field_list, prob_field_names, nb_points=nb_points)
         ply.write_ply_data(pred_filename, pred_field_list, pred_field_names)
+        ply.write_ply_data(colorpred_filename, color_pred_field_list, color_pred_field_names)
         ply.write_ply_data(prob_filename, prob_field_list, prob_field_names)
         if ascii_filename is not None:
             with open(ascii_filename, "wb") as fobj:
@@ -522,18 +539,23 @@ class ModelTester:
         # Remaining iterations
         while True:
             try:
-                points, preds, probs = next(output_gen)
+                points, preds, color_preds, probs = next(output_gen)
             except StopIteration:
                 break
             pred_field_list = [points, preds]
+            color_pred_field_list = [points, color_preds]
             prob_field_list = [points, probs]
             if not ply.check_ply_fields(pred_field_list, pred_field_names):
+                print("Invalid field list for predictions. Cancel saving.")
+                return
+            if not ply.check_ply_fields(color_pred_field_list, color_pred_field_names):
                 print("Invalid field list for predictions. Cancel saving.")
                 return
             if not ply.check_ply_fields(prob_field_list, prob_field_names):
                 print("Invalid field list for predictions. Cancel saving.")
                 return
             ply.write_ply_data(pred_filename, pred_field_list, pred_field_names)
+            ply.write_ply_data(colorpred_filename, color_pred_field_list, color_pred_field_names)
             ply.write_ply_data(prob_filename, prob_field_list, prob_field_names)
             if ascii_filename is not None:
                 with open(ascii_filename, "ab") as fobj:
