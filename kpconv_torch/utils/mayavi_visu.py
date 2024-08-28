@@ -1,12 +1,17 @@
+"""
+Mayavi visualization functions
+
+@author: Hugues THOMAS, Oslandia
+@date: july 2024
+"""
+
+from mayavi import mlab
 import numpy as np
 
 
-def show_ModelNet_models(all_points):
-    from mayavi import mlab
+def show_modelnet_models(all_points):
 
-    ###########################
     # Interactive visualization
-    ###########################
     # Create figure for features
     fig1 = mlab.figure("Models", bgcolor=(1, 1, 1), size=(1000, 800))
     fig1.scene.parallel_projection = False
@@ -43,8 +48,6 @@ def show_ModelNet_models(all_points):
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
         mlab.orientation_axes()
 
-        return
-
     def keyboard_callback(vtk_obj, event):
         global file_i
 
@@ -58,20 +61,15 @@ def show_ModelNet_models(all_points):
             file_i = (file_i + 1) % len(all_points)
             update_scene()
 
-        return
-
     # Draw a first plot
     update_scene()
     fig1.scene.interactor.add_observer("KeyPressEvent", keyboard_callback)
     mlab.show()
 
 
-def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
-    from mayavi import mlab
+def show_modelnet_examples(clouds, cloud_normals=None, cloud_labels=None):
 
-    ###########################
     # Interactive visualization
-    ###########################
     # Create figure for features
     fig1 = mlab.figure("Models", bgcolor=(1, 1, 1), size=(1000, 800))
     fig1.scene.parallel_projection = False
@@ -129,8 +127,6 @@ def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
         mlab.orientation_axes()
 
-        return
-
     def keyboard_callback(vtk_obj, event):
         global file_i, show_normals
 
@@ -146,8 +142,6 @@ def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
             show_normals = not show_normals
             update_scene()
 
-        return
-
     # Draw a first plot
     update_scene()
     fig1.scene.interactor.add_observer("KeyPressEvent", keyboard_callback)
@@ -155,11 +149,7 @@ def show_ModelNet_examples(clouds, cloud_normals=None, cloud_labels=None):
 
 
 def show_neighbors(query, supports, neighbors):
-    from mayavi import mlab
-
-    ###########################
     # Interactive visualization
-    ###########################
     # Create figure for features
     fig1 = mlab.figure("Models", bgcolor=(1, 1, 1), size=(1000, 800))
     fig1.scene.parallel_projection = False
@@ -214,8 +204,6 @@ def show_neighbors(query, supports, neighbors):
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.98)
         mlab.orientation_axes()
 
-        return
-
     def keyboard_callback(vtk_obj, event):
         global file_i
 
@@ -229,8 +217,6 @@ def show_neighbors(query, supports, neighbors):
             file_i = (file_i + 1) % len(query)
             update_scene()
 
-        return
-
     # Draw a first plot
     update_scene()
     fig1.scene.interactor.add_observer("KeyPressEvent", keyboard_callback)
@@ -238,11 +224,8 @@ def show_neighbors(query, supports, neighbors):
 
 
 def show_input_batch(batch):
-    from mayavi import mlab
 
-    ###########################
     # Interactive visualization
-    ###########################
     # Create figure for features
     fig1 = mlab.figure("Input", bgcolor=(1, 1, 1), size=(1000, 800))
     fig1.scene.parallel_projection = False
@@ -296,30 +279,6 @@ def show_input_batch(batch):
             figure=fig1,
         )
 
-        """
-        mlab.points3d(p[-2:, 0],
-                      p[-2:, 1],
-                      p[-2:, 2],
-                      labels[-2:]*0 + 3,
-                      scale_factor=0.16 * 1.5 * 50,
-                      scale_mode='none',
-                      mode='cube',
-                      vmin=0.0,
-                      vmax=3.0,
-                      figure=fig1)
-        mlab.points3d(p[-1:, 0],
-                      p[-1:, 1],
-                      p[-1:, 2],
-                      labels[-1:]*0 + 2,
-                      scale_factor=0.16 * 2 * 2.5 * 1.5 * 50,
-                      scale_mode='none',
-                      mode='sphere',
-                      vmin=0.0,
-                      vmax=3.0,
-                      figure=fig1)
-
-        """
-
         # New title
         title_str = "<([) b_i={:d} (])>    <(,) l_i={:d} (.)>    <(N) n_i={:d} (M)>".format(
             b_i, l_i, neighb_i
@@ -331,8 +290,6 @@ def show_input_batch(batch):
             text = "neighbors (switch with G)"
         mlab.text(0.01, 0.01, text, color=(0, 0, 0), width=0.3)
         mlab.orientation_axes()
-
-        return
 
     def keyboard_callback(vtk_obj, event):
         global b_i, l_i, neighb_i, show_pools
@@ -376,8 +333,6 @@ def show_input_batch(batch):
                 show_pools = not show_pools
                 neighb_i = 0
             update_scene()
-
-        return
 
     # Draw a first plot
     update_scene()
